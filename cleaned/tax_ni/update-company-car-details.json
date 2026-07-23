@@ -1,0 +1,10 @@
+{
+  "title": "Check or update your company car tax",
+  "description": "Tell HMRC about changes to your PAYE company car or fuel benefit details",
+  "text": "# Check or update your company car tax\n\nIf you need to pay tax on your company car, you can use this service to:\n\n- check your company car's details\n\n- tell HM Revenue and Customs (HMRC) about any changes to your car since 6 April\n\n- update your fuel benefit, if your employer pays for fuel\n\nThis guide is also available in Welsh (Cymraeg).\n\nYou'll need:\n\n- the car's list price (including VAT and accessories)\n\n- to check if your diesel car meets Euro 6d standard\n\n-\nCO2 emissions information\n\n- the zero emission mileage figure or 'electric range' - if your hybrid car has a CO2 emission figure of 1 to 50g/km\n\nYou can get this information from your employer.\n\n### When you cannot use this service\n\nYou cannot use this service if:\n\n- you're part of a car averaging or car sharing scheme\n\n- your employer is managing benefits and expenses through the company payroll (known as 'payrolling')\n\n- you want to make updates for a company commercial vehicle, such as a van\n\nContact HMRC or your employer to update your details if you cannot do it online.\n\n### Check your tax code\n\nUpdating your company car details may change your tax code.",
+  "word_count": 206,
+  "source_url": "https://www.gov.uk/update-company-car-details",
+  "last_updated": "2017-12-19T10:57:06+00:00",
+  "schema_name": "transaction",
+  "category": "tax_ni"
+}

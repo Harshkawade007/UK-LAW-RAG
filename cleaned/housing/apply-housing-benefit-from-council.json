@@ -1,0 +1,10 @@
+{
+  "title": "Housing Benefit information from your council",
+  "description": "Information about Housing Benefit from your local council - apply to help pay your rent ",
+  "text": "# Housing Benefit information from your council\n\nFind out other ways to apply for Housing Benefit.",
+  "word_count": 16,
+  "source_url": "https://www.gov.uk/apply-housing-benefit-from-council",
+  "last_updated": "2012-05-02T17:27:18+01:00",
+  "schema_name": "local_transaction",
+  "category": "housing"
+}

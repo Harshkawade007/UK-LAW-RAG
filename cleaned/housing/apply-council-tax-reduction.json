@@ -1,0 +1,10 @@
+{
+  "title": "Apply for Council Tax Reduction",
+  "description": "Apply to your local council for Council Tax Reduction if you're on a low income or benefits - this replaced Council Tax Benefit",
+  "text": "# Apply for Council Tax Reduction\n\nThere's a different scheme in Northern Ireland.\n\nYou could be eligible if you're on a low income or claim benefits. Your bill could be reduced by up to 100%.\n\nYou can apply if you own your home, rent, are unemployed or working.\n\nWhat you get depends on:\n\n- where you live - each council runs its own scheme\n\n- your circumstances (for example income, number of children, benefits, residency status)\n\n- your household income - this includes savings, pensions and your partner's income\n\n- if your children live with you\n\n- if other adults live with you",
+  "word_count": 103,
+  "source_url": "https://www.gov.uk/apply-council-tax-reduction",
+  "last_updated": "2022-05-27T08:44:02+01:00",
+  "schema_name": "local_transaction",
+  "category": "housing"
+}

@@ -1,0 +1,10 @@
+{
+  "title": "What to do when an employee reaches State Pension age",
+  "description": "Update your payroll records when an employee reaches State Pension age so they stop paying National Insurance",
+  "text": "# What to do when an employee reaches State Pension age\n\nYou need to update your payroll records when one of your employees reaches State Pension age so they stop paying National Insurance.\n\n## Reporting and paying\n\nChange their National Insurance category letter to 'C' in your payroll software - this means you'll stop deducting National Insurance from their pay. You still need to pay employer's contributions for them.\n\nCarry on reporting year-to-date information under the old category letter until the end of the tax year.\n\nIf you're paying a company pension to an employee who's retiring, you need to report specific things to HM Revenue and Customs (HMRC) in your Full Payment Submission (FPS).\n\n## Getting proof\n\nYour employee needs to show you one of the following to prove they've reached State Pension age:\n\n- birth certificate\n\n- passport\n\n- a certificate of age exception (CA4140), if they've already got one\n\nCA4140 certificates are no longer being issued.",
+  "word_count": 159,
+  "source_url": "https://www.gov.uk/employee-reaches-state-pension-age",
+  "last_updated": "2016-05-04T12:04:17+01:00",
+  "schema_name": "answer",
+  "category": "tax_ni"
+}

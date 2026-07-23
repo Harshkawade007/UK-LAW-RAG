@@ -1,0 +1,10 @@
+{
+  "title": "Find a job",
+  "description": "Search and apply for jobs in Great Britain using ‘Find a job’. ",
+  "text": "# Find a job\n\nFind and apply for full or part-time jobs in England, Scotland and Wales.\n\nThis page is also available in Welsh (Cymraeg).\n\nThere is a different service to search for jobs in Northern Ireland.",
+  "word_count": 37,
+  "source_url": "https://www.gov.uk/find-a-job",
+  "last_updated": "2014-11-26T11:26:56+00:00",
+  "schema_name": "transaction",
+  "category": "banking"
+}

@@ -1,0 +1,10 @@
+{
+  "title": "Apply for financial help for an employee tax refund",
+  "description": "Apply for financial help from HMRC if you cannot afford to fund an employee's tax refund",
+  "text": "# Apply for financial help for an employee tax refund\n\nYou can ask HM Revenue and Customs (HMRC) for financial help if you need to give an employee a tax refund and cannot pay for it yourself.\n\nYou need a Government Gateway user ID and password to apply. If you do not have a user ID, you can create one when you apply.\n\nAn agent can apply for you, but HMRC can only contact them about your application if you've used Form 64-8 to authorise them.\n\nYou normally take the amount of the refund off your next payment to HMRC. You can reduce your payment of tax, National Insurance, Construction Industry Scheme (CIS) deductions or student loan deductions.\n\nApply for help if reducing your payment to HMRC does not cover the tax refund.\n\nIf you need to give more than one employee a tax refund, send a separate application for each.\n\n## What happens next\n\nYou should get the refund within 3 weeks if your application is successful. Most refunds are made within 7 to 10 days. You'll get refunded faster if you provide your bank details.\n\nHMRC may reject your application if your payments are not up to date.",
+  "word_count": 200,
+  "source_url": "https://www.gov.uk/payroll-funding",
+  "last_updated": "2014-12-10T17:13:38+00:00",
+  "schema_name": "transaction",
+  "category": "tax_ni"
+}

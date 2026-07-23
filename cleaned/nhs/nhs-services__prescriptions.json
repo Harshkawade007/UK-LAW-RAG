@@ -1,0 +1,10 @@
+{
+  "title": "Prescriptions",
+  "description": "Find out about prescriptions including charges, repeat prescriptions and if you can get free prescriptions.",
+  "text": "# Prescriptions\n\nFind out about prescriptions including charges, repeat prescriptions and if you can get free prescriptions.\n\n- Check if you can get free prescriptions\n\n- NHS prescription charges\n\n- Save money with a prescription prepayment certificate (PPC)\n\n- Emergency prescriptions\n\n- How to order a repeat prescription\n\n- Collect a prescription for someone else",
+  "word_count": 55,
+  "source_url": "https://www.nhs.uk/nhs-services/prescriptions/",
+  "last_updated": "2024-06-28T14:26:50+00:00",
+  "schema_name": "nhs_webpage",
+  "category": "nhs"
+}
