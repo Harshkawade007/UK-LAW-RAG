@@ -1,0 +1,9 @@
+{
+  "title": "Contact Student Finance England",
+  "description": "Contact details for Student Finance England - including complaints and student finance appeals, Advanced Learner Loan.",
+  "body": "<p>Contact Student Finance England if you need help with things like:</p>\n\n<ul>\n  <li>checking the progress of your application</li>\n  <li>resetting your login details</li>\n  <li>updating your personal or course details</li>\n  <li>making a complaint or an appeal</li>\n</ul>\n\n<p><a href=\"https://www.gov.uk/guidance/contact-slc-repayment-enquiries\">Contact the Student Loans Company</a> if you need help with your student loan repayment.</p>\n\n<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>If you want to speak to an adviser about your child’s or partner’s student finance application, you’ll need <a href=\"/guidance/allowing-someone-else-to-manage-your-student-loan-account\">to get their consent before calling Student Finance England</a>.</p>\n</div>",
+  "source_url": "https://www.gov.uk/contact-student-finance-england",
+  "last_updated": "2024-11-29T21:00:03+00:00",
+  "schema_name": "simple_smart_answer",
+  "category": "education"
+}

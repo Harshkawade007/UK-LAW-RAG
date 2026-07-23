@@ -1,0 +1,9 @@
+{
+  "title": "Visa fees",
+  "description": "Check how much your visa application costs in the country you’re in",
+  "body": "<p>Use this tool to work out the cost of your UK visa application.</p>\n\n\n\n<p>You can <a href=\"/uk-visa\">check what visa you need</a> to come to the UK - such as a work, study or visit visa.</p>",
+  "source_url": "https://www.gov.uk/visa-fees",
+  "last_updated": "2015-04-27T15:14:19+01:00",
+  "schema_name": "transaction",
+  "category": "visa"
+}

@@ -1,0 +1,9 @@
+{
+  "title": "Hospitals",
+  "description": "About NHS hospitals, booking and changing appointments with the NHS e-Referral Service and going into hospital.",
+  "body": "About NHS hospitals, booking and changing appointments with the NHS e-Referral Service and going into hospital.\n\n- Book an appointment using the NHS e-Referral Service\n\n- Referrals for specialist care\n\n- Guide to NHS waiting times in England\n\n- Going into hospital\n\n- About NHS hospital services\n\n- What is PALS (Patient Advice and Liaison Service)?\n\n<h2>Related services</h2>\n\n- Coronavirus (COVID-19) vaccine",
+  "source_url": "https://www.nhs.uk/nhs-services/hospitals/",
+  "last_updated": "2025-01-09T11:17:25+00:00",
+  "schema_name": "nhs_webpage",
+  "category": "nhs"
+}

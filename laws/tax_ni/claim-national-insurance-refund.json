@@ -1,0 +1,9 @@
+{
+  "title": "Check how to claim a National Insurance refund",
+  "description": "Find out how to claim a refund on the National Insurance (NI) you’ve paid to HM Revenue and Customs (HMRC).",
+  "body": "<p>Use this tool to check how to claim a refund on your National Insurance contributions from HM Revenue and Customs (<abbr title=\"HM Revenue and Customs\">HMRC</abbr>).</p>\n\n<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>This page is also available <a href=\"/hawlio-ad-daliad-yswiriant-gwladol\">in Welsh (Cymraeg)</a>.</p>\n</div>\n\n<p>If you’ve already claimed a refund, <a href=\"/guidance/check-when-you-can-expect-a-reply-from-hmrc\">check when you can expect a reply</a>.</p>\n\n<h2 id=\"find-out-how-to-claim\">Find out how to claim</h2>\n\n<p>There are <a href=\"/national-insurance/national-insurance-classes\">different classes of National Insurance</a>. You’ll be asked what class your refund is for.</p>\n\n<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>If <abbr title=\"HM Revenue and Customs\">HMRC</abbr> has written to you about National Insurance contributions (and your letter includes a claim reference number), you can <a href=\"/guidance/apply-for-a-refund-of-national-insurance-contributions\">apply for a refund of National Insurance contributions</a>.</p>\n</div>",
+  "source_url": "https://www.gov.uk/claim-national-insurance-refund",
+  "last_updated": "2016-10-31T17:04:43+00:00",
+  "schema_name": "simple_smart_answer",
+  "category": "tax_ni"
+}

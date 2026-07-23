@@ -1,0 +1,9 @@
+{
+  "title": "Basic bank accounts",
+  "description": "This series brings together all documents relating to the basic bank account data reported to the Treasury by the nine banks designated to provide basic bank accounts.",
+  "body": "<div class=\"govspeak\"><p>The nine largest personal current account (PCA) providers are legally required to offer basic bank accounts that are fee-free for standard operations, including a failed payment, removing the risk that customers run up unintended overdrafts. Basic bank account customers are able to use the same services (e.g. ATM and Post Office counter access) as a financial institution’s other PCA customers. These 9 institutions are: Barclays UK, the Co-operative Bank, HSBC UK, Lloyds Banking Group (including Halifax and Bank of Scotland brands), Nationwide Building Society, NatWest Group (including Royal Bank of Scotland and Ulster Bank brands), Santander UK, TSB and Virgin Money.</p>\n\n<p>These designated providers have agreed to report data on basic bank accounts and personal current accounts to HM Treasury for annual publication.</p>\n</div>",
+  "source_url": "https://www.gov.uk/government/collections/basic-bank-accounts",
+  "last_updated": "2025-11-05T09:30:07+00:00",
+  "schema_name": "document_collection",
+  "category": "banking"
+}

@@ -1,0 +1,9 @@
+{
+  "title": "School term and holiday dates",
+  "description": "Find your child's school term, half term and holiday dates on your local council's website",
+  "body": "<p>Find out about school holiday dates in <a rel=\"external\" href=\"https://www.mygov.scot/school-term-and-holiday-dates/\">Scotland</a> and <a rel=\"external\" href=\"https://www.education-ni.gov.uk/articles/school-holidays\">Northern Ireland</a>.</p>",
+  "source_url": "https://www.gov.uk/school-term-holiday-dates",
+  "last_updated": "2015-10-02T16:13:44+01:00",
+  "schema_name": "local_transaction",
+  "category": "employment"
+}

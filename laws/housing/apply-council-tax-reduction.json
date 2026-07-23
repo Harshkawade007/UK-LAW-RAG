@@ -1,0 +1,9 @@
+{
+  "title": "Apply for Council Tax Reduction",
+  "description": "Apply to your local council for Council Tax Reduction if you're on a low income or benefits - this replaced Council Tax Benefit",
+  "body": "<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>There’s a different <a rel=\"external\" href=\"http://www.nidirect.gov.uk/index/information-and-services/property-and-housing/rates/help-with-paying-your-rates.htm\">scheme in Northern Ireland</a>.</p>\n</div>\n\n<p>You could be eligible if you’re on a low income or claim benefits. Your bill could be reduced by up to 100%.</p>\n\n<p>You can apply if you own your home, rent, are unemployed or working.</p>\n\n<p>What you get depends on:</p>\n\n<ul>\n  <li>where you live - each council runs its own scheme</li>\n  <li>your circumstances (for example income, number of children, benefits, residency status)</li>\n  <li>your household income - this includes savings, pensions and your partner’s income</li>\n  <li>if your children live with you</li>\n  <li>if other adults live with you</li>\n</ul>",
+  "source_url": "https://www.gov.uk/apply-council-tax-reduction",
+  "last_updated": "2022-05-27T08:44:02+01:00",
+  "schema_name": "local_transaction",
+  "category": "housing"
+}

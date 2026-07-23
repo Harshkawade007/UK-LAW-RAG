@@ -1,0 +1,9 @@
+{
+  "title": "Find your NHS number",
+  "description": "Use this service to get your NHS number sent to you by text, email or letter.",
+  "body": "Use this service to get your NHS number.\n\nYour NHS number is a 10 digit number, like 485 777 3456.\n\nYou do not need to know your NHS number to use NHS services, but it can be useful to have it.\n\nYou can also get your NHS number in your NHS account .\n\n<h2>Who can use this service</h2>\n\nYou can use this service if you live in England.\n\nYou can also use this service for someone else.\n\n<h2>Before you start</h2>\n\nYou will need your:\n\n- full name\n\n- date of birth\n\n- postcode of the address you've registered at a GP surgery with\n\nYou will have your NHS number sent to you by text, email or letter.\n\nIf you're using this service for someone else, enter their details. They will be sent their NHS number.\n\n<h2>Other ways to get your NHS number</h2>\n\nIf you cannot get your NHS number online you can:\n\n- find it on any letter from the NHS like a prescription or appointment letter\n\n- call your GP surgery and ask them for your number\n\n<h2>About using this service</h2>\n\nBy using this service you are agreeing to our terms and conditions and privacy policy .\n\nPage last reviewed: 3 April 2025 Next review due: 3 April 2028",
+  "source_url": "https://www.nhs.uk/nhs-services/find-nhs-number/",
+  "last_updated": "2026-02-11T16:48:29+00:00",
+  "schema_name": "nhs_webpage",
+  "category": "nhs"
+}

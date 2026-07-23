@@ -1,0 +1,9 @@
+{
+  "title": "Check if you need to send a Self Assessment tax return",
+  "description": "Use this tool to find out if you need to send a tax return for the 2025 to 2026 tax year (6 April 2025 to 5 April 2026).\r\n",
+  "body": "<p>Use this tool to find out if you need to send a tax return for the 2025 to 2026 tax year (6 April 2025 to 5 April 2026).</p>\n\n<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>This service is also available <a href=\"/gwirio-angen-ffurflen-dreth\">in Welsh (Cymraeg)</a>.</p>\n</div>\n\n<p>The tool will not send your details to HM Revenue and Customs (<abbr title=\"HM Revenue and Customs\">HMRC</abbr>).</p>\n\n<p>If you have additional income, for example by selling things online or renting out part of your home, <a href=\"/check-additional-income-tax\">check if you need to tell <abbr title=\"HM Revenue and Customs\">HMRC</abbr></a>.</p>",
+  "source_url": "https://www.gov.uk/check-if-you-need-tax-return",
+  "last_updated": "2024-12-17T09:27:06+00:00",
+  "schema_name": "simple_smart_answer",
+  "category": "tax_ni"
+}

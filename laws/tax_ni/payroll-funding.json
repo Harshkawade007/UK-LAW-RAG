@@ -1,0 +1,9 @@
+{
+  "title": "Apply for financial help for an employee tax refund",
+  "description": "Apply for financial help from HMRC if you cannot afford to fund an employee's tax refund",
+  "body": "<p>You can ask HM Revenue and Customs (<abbr title=\"HM Revenue and Customs\">HMRC</abbr>) for financial help if you need to give an employee a tax refund and cannot pay for it yourself.</p>\n\n<p>You need a Government Gateway user ID and password to apply. If you do not have a user ID, you can create one when you apply.</p>\n\n<p>An agent can apply for you, but <abbr title=\"HM Revenue and Customs\">HMRC</abbr> can only contact them about your application if you’ve used <a href=\"/guidance/authorising-an-agent-to-deal-with-your-tax-affairs\">Form 64-8</a> to authorise them.</p>\n\n\n\n<p>You normally take the amount of the refund off your next payment to HMRC. You can reduce your payment of tax, National Insurance, Construction Industry Scheme (<abbr title=\"Construction Industry Scheme\">CIS</abbr>) deductions or student loan deductions.</p>\n\n<p>Apply for help if reducing your payment to HMRC does not cover the tax refund.</p>\n\n<p>If you need to give more than one employee a tax refund, send a separate application for each.</p>\n\n<h2 id=\"what-happens-next\">What happens next</h2>\n\n<p>You should get the refund within 3 weeks if your application is successful. Most refunds are made within 7 to 10 days. You’ll get refunded faster if you provide your bank details.</p>\n\n<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>HMRC may reject your application if your payments are not up to date.</p>\n</div>",
+  "source_url": "https://www.gov.uk/payroll-funding",
+  "last_updated": "2014-12-10T17:13:38+00:00",
+  "schema_name": "transaction",
+  "category": "tax_ni"
+}

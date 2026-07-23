@@ -1,0 +1,9 @@
+{
+  "title": "Advertise a job",
+  "description": "Employers can use the 'Find a job’ service to advertise jobs online",
+  "body": "<p>Advertise and manage your vacancies on the ‘Find a job’ service.</p>\n\n<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>This page is also available in Welsh (<a href=\"/hysbysebu-swydd\">Cymraeg</a>).</p>\n</div>\n\n<p>This service is only available for England, Scotland and Wales. There’s a different service to <a rel=\"external\" href=\"https://www.jobapplyni.com/\">advertise vacancies in Northern Ireland</a></p>\n\n\n<p>You’ll need to sign in to use this service. If you do not have sign in details you’ll be able to create them.</p>",
+  "source_url": "https://www.gov.uk/advertise-job",
+  "last_updated": "2014-11-26T11:28:41+00:00",
+  "schema_name": "transaction",
+  "category": "employment"
+}

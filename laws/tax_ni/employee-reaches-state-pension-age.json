@@ -1,0 +1,9 @@
+{
+  "title": "What to do when an employee reaches State Pension age",
+  "description": "Update your payroll records when an employee reaches State Pension age so they stop paying National Insurance",
+  "body": "<p>You need to update your payroll records when one of your employees reaches <a href=\"/state-pension-age\">State Pension age</a> so they stop paying National Insurance.</p>\n\n<h2 id=\"reporting-and-paying\">Reporting and paying</h2>\n\n<p>Change their National Insurance category letter to ‘C’ in your payroll software - this means you’ll stop deducting National Insurance from their pay. You still need to pay employer’s contributions for them.</p>\n\n<p>Carry on reporting year-to-date information under the old category letter until the end of the tax year.</p>\n\n<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>If you’re <a href=\"/employee-leaving\">paying a company pension</a> to an employee who’s retiring, you need to report specific things to HM Revenue and Customs (<abbr title=\"HM Revenue and Customs\">HMRC</abbr>) in your Full Payment Submission (<abbr title=\"Full Payment Submission\">FPS</abbr>).</p>\n</div>\n\n<h2 id=\"getting-proof\">Getting proof</h2>\n\n<p>Your employee needs to show you one of the following to prove they’ve reached State Pension age:</p>\n\n<ul>\n  <li>birth certificate</li>\n  <li>passport</li>\n  <li>a certificate of age exception (CA4140), if they’ve already got one</li>\n</ul>\n\n<div role=\"note\" aria-label=\"Information\" class=\"application-notice info-notice\">\n  <p>CA4140 certificates are no longer being issued.</p>\n</div>",
+  "source_url": "https://www.gov.uk/employee-reaches-state-pension-age",
+  "last_updated": "2016-05-04T12:04:17+01:00",
+  "schema_name": "answer",
+  "category": "tax_ni"
+}

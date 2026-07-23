@@ -1,0 +1,9 @@
+{
+  "title": "Apply for direct payments",
+  "description": "If you get help from social services, direct payments let you choose and buy the services you need yourself, instead of getting them from your council",
+  "body": "<p>You can only get direct payments if you’ve been assessed by social services as needing care and support services.</p>\n\n<p>Direct payments can be made to:</p>\n\n<ul>\n  <li>disabled people aged 16 or over (with short or long-term needs)</li>\n  <li>disabled parents for children’s services</li>\n  <li>carers aged 16 or over (including people with parental responsibility for a disabled child)</li>\n  <li>elderly people who need community care services</li>\n</ul>",
+  "source_url": "https://www.gov.uk/apply-direct-payments",
+  "last_updated": "2015-09-21T12:40:59+01:00",
+  "schema_name": "local_transaction",
+  "category": "banking"
+}
