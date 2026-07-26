@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Local Qdrant vector store (regenerate with `python index.py`)
+qdrant_data/
+
+# OS
+.DS_Store
+Thumbs.db
