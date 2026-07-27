@@ -4,6 +4,9 @@ __pycache__/
 .venv/
 *.egg-info/
 
+# Secrets
+.env
+
 # Local Qdrant vector store (regenerate with `python index.py`)
 qdrant_data/
 

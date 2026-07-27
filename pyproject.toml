@@ -11,4 +11,6 @@ dependencies = [
     "tiktoken>=0.13.0",
     "sentence-transformers>=5.6.1",
     "qdrant-client>=1.18.0",
+    "openai>=2.48.0",
+    "python-dotenv>=1.2.2",
 ]
