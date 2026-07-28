@@ -1,0 +1,362 @@
+[
+  {
+    "question": "What can I not do on a Student visa?",
+    "category": [
+      "visa"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/student-visa"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/student-visa",
+      "https://www.gov.uk/parent-of-a-child-at-school-visa",
+      "https://www.gov.uk/graduate-visa",
+      "https://www.gov.uk/child-study-visa",
+      "https://www.gov.uk/student-visa"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "On a Student visa, you cannot:\n- claim public funds (benefits) and pensions [1]\n- work in certain jobs, for example as a professional sportsperson or sports coach [1]\n- be self-employed [1]\n- study at an academy or a local authority-funded school (also known as a maintained school) [1]\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "How many hours a week can I work on a Student visa during term time?",
+    "category": [
+      "visa"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/student-visa"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/child-study-visa",
+      "https://www.gov.uk/child-employment",
+      "https://www.gov.uk/student-visa",
+      "https://www.gov.uk/student-visa",
+      "https://www.gov.uk/skilled-worker-visa"
+    ],
+    "hit": true,
+    "rank": 3,
+    "is_refusal_case": false,
+    "answer": "The provided sources do not specifically mention the number of hours a week a Student visa holder can work during term time. The information about working hours is mentioned in the context of a Child Student visa [1] and child employment [2], but not for a general Student visa. \n\nFor accurate and up-to-date information, I recommend checking the official UK government website, specifically the pages related to Student visas.\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "Are BRP (biometric residence permit) cards still valid?",
+    "category": [
+      "visa"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/biometric-residence-permits"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/biometric-residence-permits",
+      "https://www.gov.uk/biometric-residence-permits",
+      "https://www.gov.uk/change-circumstances-visa-brp",
+      "https://www.gov.uk/biometric-residence-permits",
+      "https://www.gov.uk/biometric-residence-permits"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "BRP (biometric residence permit) cards are no longer valid as they have been replaced by eVisas [1]. However, you might still be able to use an expired BRP for certain purposes, such as signing in to view your eVisa, creating a UKVI account, or applying to extend your permission to stay in the UK, for up to 24 months after the expiry date or until 31 December 2026, whichever comes first [1]. \n\nFor all other purposes, you should use your eVisa to prove your immigration status [1]. If you have any issues with your expired BRP, you may need to destroy it and check your eVisa details [2].\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "I'm on a Student visa - can I switch to a Skilled Worker visa after I graduate?",
+    "category": [
+      "visa",
+      "employment"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/skilled-worker-visa",
+      "https://www.gov.uk/student-visa"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/skilled-worker-visa",
+      "https://www.gov.uk/skilled-worker-visa",
+      "https://www.gov.uk/skilled-worker-visa",
+      "https://www.gov.uk/student-visa",
+      "https://www.gov.uk/skilled-worker-visa"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "As a Student visa holder, you might be able to apply to change ('switch') to a Skilled Worker visa if you're already in the UK [1]. You must apply online before your current visa expires [2]. According to the rules, there is no specific restriction on switching from a Student visa to a Skilled Worker visa, but you should check the eligibility criteria and requirements for the Skilled Worker visa [1][2]. \n\nYou cannot switch to a Skilled Worker visa if you're in one of the categories listed in [3], but a Student visa is not among them. \n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "Who is eligible to apply for a National Insurance number?",
+    "category": [
+      "tax_ni"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/apply-national-insurance-number"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/apply-national-insurance-number",
+      "https://www.gov.uk/apply-national-insurance-number",
+      "https://www.gov.uk/national-insurance",
+      "https://www.gov.uk/apply-national-insurance-number",
+      "https://www.gov.uk/apply-national-insurance-number"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "To be eligible to apply for a National Insurance number, you must:\n* Live in the UK [2]\n* Have the right to work in the UK [2]\n* Be working, looking for work, or have an offer to start work [2]\nYou can also apply if you've never had a National Insurance number [3]. If you have a biometric residence permit (BRP) or eVisa, you might already have a National Insurance number, which can be found on the back of your BRP or in your UK Visas and Immigration (UKVI) account [5].\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "Can I start working before I get my National Insurance number?",
+    "category": [
+      "tax_ni"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/apply-national-insurance-number"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/apply-national-insurance-number",
+      "https://www.gov.uk/start-a-job",
+      "https://www.gov.uk/national-insurance",
+      "https://www.gov.uk/guidance/starter-checklist-for-paye",
+      "https://www.gov.uk/find-national-insurance-number"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "According to the UK government website [1], you can start work before you receive your National Insurance number if you can prove you have the right to work in the UK. However, your employer will usually need your National Insurance number when you start your new job, as stated in [2]. \n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "What is the Personal Allowance for Income Tax?",
+    "category": [
+      "tax_ni"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/income-tax-rates"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/income-tax",
+      "https://www.gov.uk/income-tax-rates",
+      "https://www.gov.uk/income-tax-rates",
+      "https://www.gov.uk/income-tax-rates",
+      "https://www.gov.uk/apply-tax-free-interest-on-savings"
+    ],
+    "hit": true,
+    "rank": 2,
+    "is_refusal_case": false,
+    "answer": "The standard Personal Allowance for Income Tax is £12,570, which is the amount of income you do not have to pay tax on [2]. This amount may vary if your income is over £100,000 or if you claim certain allowances such as Blind Person's Allowance or Marriage Allowance [2][4]. \n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "Do full-time students have to pay Council Tax?",
+    "category": [
+      "housing"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/council-tax"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/council-tax",
+      "https://www.gov.uk/council-tax",
+      "https://www.gov.uk/council-tax",
+      "https://www.gov.uk/tax-foreign-income",
+      "https://www.gov.uk/council-tax-arrears"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "According to [1], households where everyone is a full-time student do not have to pay Council Tax. To qualify, the course must last at least 1 year and involve at least 21 hours of study per week. If you're a full-time student and receive a Council Tax bill, you can apply for an exemption. However, if there's someone in your household who's not a full-time student, you'll likely receive a Council Tax bill, but your household might still qualify for a discount.\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "Does my landlord have to protect my deposit?",
+    "category": [
+      "housing"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/tenancy-deposit-protection"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/tenancy-deposit-protection",
+      "https://www.gov.uk/private-renting",
+      "https://www.gov.uk/rent-room-in-your-home",
+      "https://www.gov.uk/deposit-protection-schemes-and-landlords",
+      "https://www.gov.uk/renting-a-room-in-someones-home-lodgers"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "In England, your landlord must protect your deposit using a government-approved tenancy deposit protection scheme if you have an assured periodic tenancy and your landlord took your deposit on or after 6 April 2007 [2]. However, there are exceptions, such as if you're a lodger renting a room in someone's home, in which case your landlord does not have to protect your deposit with a government-approved scheme [3][5]. Additionally, holding deposits do not need to be protected, but once you become a tenant, the holding deposit becomes a deposit that must be protected [1][4]. \n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "What types of tenancy exist for private renting in the UK?",
+    "category": [
+      "housing"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/private-renting"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/private-renting",
+      "https://www.gov.uk/renting-out-a-property",
+      "https://www.gov.uk/check-register-rents",
+      "https://www.gov.uk/park-mobile-homes",
+      "https://www.gov.uk/assured-periodic-tenancies-tenants"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "The types of tenancy that exist for private renting in the UK include:\n- Assured periodic tenancy (APT) [1][2][5]\n- Excluded tenancies or licences [1][2]\n- Regulated tenancies [1][2][3][4]\n\nIf you rent a property as a university student, the type of tenancy you have depends on the type of housing you're living in [1]. You can check which type of tenancy you have by using Shelter's tenancy checker [1][2][5].\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "What is the National Minimum Wage and does age affect it?",
+    "category": [
+      "employment"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/national-minimum-wage-rates"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/national-minimum-wage",
+      "https://www.gov.uk/national-minimum-wage-rates",
+      "https://www.gov.uk/child-employment",
+      "https://www.gov.uk/national-minimum-wage",
+      "https://www.gov.uk/national-minimum-wage-accommodation"
+    ],
+    "hit": true,
+    "rank": 2,
+    "is_refusal_case": false,
+    "answer": "The National Minimum Wage is the minimum pay per hour that almost all workers are entitled to, and it depends on the worker's age and whether they're an apprentice [1]. The National Living Wage is higher than the National Minimum Wage and applies to workers who are 21 and over [1][2]. \n\nTo be eligible for the National Minimum Wage, a worker must be at least school leaving age, while workers must be 21 or over to get the National Living Wage [2][4]. \n\nHere are the key points:\n* School-aged children are not entitled to the National Minimum Wage [3].\n* Workers, including part-time, casual, and agency workers, are entitled to the correct minimum wage [4].\n* Age affects the National Minimum Wage, with different rates for under 21s and those 21 and over [1][2].\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "How many weeks of paid holiday am I entitled to as a worker?",
+    "category": [
+      "employment"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/holiday-entitlement-rights"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/holiday-entitlement-rights",
+      "https://www.gov.uk/holiday-entitlement-rights",
+      "https://www.gov.uk/holiday-entitlement-rights",
+      "https://www.gov.uk/holiday-entitlement-rights",
+      "https://www.gov.uk/become-apprentice"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "As a worker, you are entitled to 5.6 weeks' paid holiday a year, which is equivalent to at least 28 days' paid annual leave [1][2][3]. This includes agency workers, workers with irregular hours, and part-year workers [2]. You can use the holiday calculator to work out how much leave you should get [1]. \n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "What can I use student finance to help pay for?",
+    "category": [
+      "education"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/student-finance"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/student-finance",
+      "https://www.gov.uk/student-finance",
+      "https://www.gov.uk/mature-student-university-funding",
+      "https://www.gov.uk/student-finance-forms",
+      "https://www.gov.uk/student-finance"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "You can use student finance to help pay for:\n* Tuition fees through a Tuition Fee Loan [1]\n* Living costs, such as rent, food, books, travel, and other expenses, through a Maintenance Loan [1]\n* Additional expenses if you're on a low income, disabled, or have children, which may not need to be paid back [1][2]\n\nYou may also be able to get extra financial help, such as grants, allowances, bursaries, scholarships, or hardship funds, depending on your situation and course [2][3].\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "Can I get student finance if I've studied a degree before?",
+    "category": [
+      "education"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/student-finance"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/student-finance",
+      "https://www.gov.uk/student-finance",
+      "https://www.gov.uk/student-finance",
+      "https://www.gov.uk/student-finance",
+      "https://www.gov.uk/get-undergraduate-student-loan"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "You can get student finance if you've studied a degree before, but only in certain circumstances [1]. If you've already completed a degree, you may be eligible for limited funding if you're 'topping up' a higher education qualification or starting a new course in specific subjects such as agriculture, architecture, or biological sciences [1]. You may also be eligible if you're starting a healthcare course on or after 1 August 2017 [1]. \n\nTo determine your eligibility, you should check the specific rules and exceptions on the UK government's website [1][2][3][4]. \n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "What is Attendance Allowance and who is it for?",
+    "category": [
+      "banking"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/attendance-allowance"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/financial-help-disabled",
+      "https://www.gov.uk/attendance-allowance",
+      "https://www.gov.uk/attendance-allowance",
+      "https://www.gov.uk/attendance-allowance",
+      "https://www.gov.uk/attendance-allowance"
+    ],
+    "hit": true,
+    "rank": 2,
+    "is_refusal_case": false,
+    "answer": "Attendance Allowance is a tax-free benefit for people who are State Pension age or over, have a disability, and need someone to help look after them [1]. It helps with extra costs if you have a disability or health condition severe enough that you need someone to help look after you [4]. To be eligible, you must be State Pension age or older and have a physical disability, mental disability, or health condition [4]. The benefit is paid at two different rates, depending on the level of care needed, and can be £76.70 or £114.60 a week [4]. \n\nYou do not have to have someone caring for you to claim, but if you do have a carer, they may be eligible for Carer's Allowance [4]. \n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "What does the NHS entitlements migrant health guide cover?",
+    "category": [
+      "nhs"
+    ],
+    "expected_sources": [
+      "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide"
+    ],
+    "retrieved_sources": [
+      "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+      "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+      "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+      "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+      "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "The NHS entitlements migrant health guide covers various topics, including:\n* How the NHS operates and how it compares to other healthcare systems [1]\n* Dental treatment entitlements and oral health [2]\n* Resources for patients, such as help with health costs, including the NHS low income scheme and the HC1 form [3]\n* Information on accessing NHS services, including registration with a GP, vaccinations, and maternity rights [3]\n* Guidance on entitlements to NHS services for migrants in England, including primary and secondary care [4]\n* Changes to healthcare entitlements after the Brexit transition period, including information for EU citizens and short-term visitors [5]\n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "How do I register with a GP surgery in England?",
+    "category": [
+      "nhs"
+    ],
+    "expected_sources": [
+      "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/"
+    ],
+    "retrieved_sources": [
+      "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+      "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+      "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+      "https://www.nhs.uk/nhs-services/armed-forces-community/nhs-services-guide/",
+      "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/"
+    ],
+    "hit": true,
+    "rank": 1,
+    "is_refusal_case": false,
+    "answer": "To register with a GP surgery in England, you can:\n* Register online using the NHS website by entering your post code, choosing a surgery, and filling in a registration form [3]\n* Use the NHS App to change your GP surgery, if you are already registered with one [3]\n* Visit the surgery in person and fill in a paper form [5]\n* Download a registration form, fill it in, and take it to the surgery [5]\n* Fill in a form on the surgery's own website, if available [5]\n\nYou do not need proof of address, immigration status, ID, or an NHS number to register [4]. It's free to register with a GP [4]. \n\nThis is general information, not legal advice."
+  },
+  {
+    "question": "Can I bring my pet dog with me when I move to the UK to study?",
+    "category": [
+      "visa"
+    ],
+    "expected_sources": [],
+    "retrieved_sources": [
+      "https://www.gov.uk/study-uk-student-visa",
+      "https://www.gov.uk/study-uk-child-student-visa",
+      "https://www.gov.uk/transport-disabled",
+      "https://www.gov.uk/standard-visitor",
+      "https://www.gov.uk/standard-visitor"
+    ],
+    "hit": true,
+    "rank": null,
+    "is_refusal_case": true,
+    "answer": "To determine if you can bring your pet dog with you when moving to the UK to study, you should check the rules on pet travel [1][2]. The provided sources do not explicitly state the conditions for bringing a pet dog into the UK for study purposes, but they suggest checking what food, animals, or plants you can bring into the UK. For specific guidance on traveling with pets, you may need to visit the official UK government website for more detailed information.\n\nHowever, if your dog is an assistance dog, you have the right to travel with it, and you'll need to follow the rules on pet travel [3].\n\nThis is general information, not legal advice."
+  }
+]

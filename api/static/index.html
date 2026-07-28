@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UK Student Legal Assistant</title>
+<style>
+  :root {
+    --bg:#f5f7f8; --surface:#fff; --surface-2:#eef1f3; --border:#dbe1e4;
+    --ink:#16232a; --ink-soft:#485b64; --ink-faint:#74868f;
+    --accent:#0e7c86; --accent-wash:#dcefF1;
+    --warn:#a8631a; --warn-wash:#fbf0df;
+    --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0f1619; --surface:#161f24; --surface-2:#1d282e; --border:#2b3a41;
+      --ink:#e8eef0; --ink-soft:#aebdc4; --ink-faint:#7d9099;
+      --accent:#43bcc7; --accent-wash:#10323a;
+      --warn:#e0a35c; --warn-wash:#3a2a15;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6}
+  .wrap{max-width:860px;margin:0 auto;padding:2rem 1.25rem 4rem}
+  h1{font-size:1.5rem;margin:0 0 .25rem}
+  .sub{color:var(--ink-faint);font-size:.9rem;margin:0 0 1.5rem}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1rem}
+  textarea{width:100%;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);
+           color:var(--ink);font-family:inherit;font-size:1rem;padding:.7rem;resize:vertical;min-height:70px}
+  textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+
+  .controls{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:.75rem}
+  .modes{display:flex;gap:.3rem;background:var(--surface-2);padding:.25rem;border-radius:8px}
+  .modes label{font-size:.85rem;padding:.3rem .7rem;border-radius:6px;cursor:pointer;color:var(--ink-soft)}
+  .modes input{position:absolute;opacity:0;pointer-events:none}
+  .modes input:checked + span{background:var(--accent);color:#fff;border-radius:6px;padding:.3rem .7rem;display:inline-block;margin:-.3rem -.7rem}
+  .modes input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+  .chk{font-size:.85rem;color:var(--ink-soft);display:flex;align-items:center;gap:.4rem;cursor:pointer}
+  button{margin-left:auto;background:var(--accent);color:#fff;border:0;border-radius:8px;
+         padding:.55rem 1.3rem;font-size:.95rem;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.55;cursor:default}
+
+  .meta{font-family:var(--mono);font-size:.75rem;color:var(--ink-faint);margin-bottom:.6rem}
+  .answer{white-space:pre-wrap}
+  .answer cite{background:var(--accent-wash);color:var(--accent);font-style:normal;font-weight:600;
+               border-radius:4px;padding:0 .28em;font-family:var(--mono);font-size:.85em}
+  .disclaimer{margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border);
+              color:var(--ink-faint);font-size:.8rem}
+
+  h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);margin:0 0 .6rem}
+  details{border:1px solid var(--border);border-radius:8px;margin-bottom:.45rem;background:var(--surface-2)}
+  summary{cursor:pointer;padding:.55rem .7rem;font-size:.9rem;display:flex;gap:.6rem;align-items:baseline}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸";color:var(--ink-faint);font-size:.8rem}
+  details[open] summary::before{content:"▾"}
+  .num{font-family:var(--mono);color:var(--accent);font-weight:600;font-size:.85rem}
+  .crumb{flex:1;min-width:0}
+  .score{font-family:var(--mono);font-size:.75rem;color:var(--ink-faint)}
+  .body{padding:.2rem .8rem .8rem 1.9rem;font-size:.88rem;color:var(--ink-soft);white-space:pre-wrap;
+        max-height:300px;overflow:auto}
+  .body a{color:var(--accent)}
+  .err{background:var(--warn-wash);border-color:var(--warn);color:var(--warn)}
+  .hint{color:var(--ink-faint);font-size:.82rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>UK Student Legal Assistant</h1>
+  <p class="sub">Ask a question, switch retrieval modes, and inspect exactly which sections were retrieved.</p>
+
+  <div class="panel">
+    <textarea id="q" placeholder="e.g. Do full-time students have to pay Council Tax?"></textarea>
+    <div class="controls">
+      <div class="modes" role="radiogroup" aria-label="Retrieval mode">
+        <label><input type="radio" name="mode" value="dense"><span>dense</span></label>
+        <label><input type="radio" name="mode" value="hybrid"><span>hybrid</span></label>
+        <label><input type="radio" name="mode" value="rerank" checked><span>rerank</span></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="gen" checked> generate answer</label>
+      <button id="go">Ask</button>
+    </div>
+    <p class="hint" style="margin:.6rem 0 0">Uncheck “generate answer” to inspect retrieval only — no API credits used.</p>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const out = $("#out"), btn = $("#go"), qEl = $("#q");
+
+const esc = (s) => (s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// Turn [1] / [2][3] citation markers into highlighted chips.
+const cites = (s) => esc(s).replace(/\[(\d+)\]/g, '<cite>[$1]</cite>');
+
+function render(d) {
+  const t = d.timings;
+  const timing = `mode=${d.mode} · retrieval ${t.retrieval_ms}ms`
+    + (t.generation_ms != null ? ` · generation ${t.generation_ms}ms` : " · retrieval only");
+
+  let html = "";
+  if (d.answer) {
+    html += `<div class="panel"><div class="meta">${esc(timing)}</div>
+      <div class="answer">${cites(d.answer)}</div></div>`;
+  } else {
+    html += `<div class="panel"><div class="meta">${esc(timing)}</div>
+      <p class="hint" style="margin:0">Retrieval only — tick “generate answer” for a written response.</p></div>`;
+  }
+
+  html += `<div class="panel"><h2>Retrieved sections (${d.sources.length})</h2>`;
+  for (const s of d.sources) {
+    const score = s.score == null ? "" : `<span class="score">${s.score.toFixed(3)}</span>`;
+    html += `<details>
+      <summary><span class="num">[${s.n}]</span>
+        <span class="crumb">${esc(s.breadcrumb || s.page_title || "")}</span>${score}</summary>
+      <div class="body">${esc(s.text || "")}
+        ${s.url ? `<p><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a></p>` : ""}
+      </div></details>`;
+  }
+  html += `<p class="disclaimer">Not legal advice. Always confirm on the linked official page.</p></div>`;
+  out.innerHTML = html;
+}
+
+async function ask() {
+  const question = qEl.value.trim();
+  if (question.length < 3) { qEl.focus(); return; }
+  btn.disabled = true; btn.textContent = "Thinking…";
+  out.innerHTML = `<div class="panel"><span class="hint">Searching the corpus…</span></div>`;
+  try {
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        question,
+        mode: document.querySelector('input[name=mode]:checked').value,
+        generate: $("#gen").checked,
+      }),
+    });
+    if (!res.ok) throw new Error((await res.text()) || res.statusText);
+    render(await res.json());
+  } catch (e) {
+    out.innerHTML = `<div class="panel err"><strong>Request failed.</strong><br>${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "Ask";
+  }
+}
+
+btn.addEventListener("click", ask);
+qEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !e.shiftKey)) { e.preventDefault(); ask(); }
+});
+</script>
+</body>
+</html>

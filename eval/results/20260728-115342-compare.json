@@ -1,0 +1,700 @@
+{
+  "metrics": {
+    "dense": {
+      "mrr": 0.8725490196078431,
+      "hit_rate": 17
+    },
+    "hybrid": {
+      "mrr": 0.8970588235294118,
+      "hit_rate": 17
+    }
+  },
+  "dense": [
+    {
+      "question": "What can I not do on a Student visa?",
+      "category": [
+        "visa"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/student-visa"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/student-visa",
+        "https://www.gov.uk/parent-of-a-child-at-school-visa",
+        "https://www.gov.uk/graduate-visa",
+        "https://www.gov.uk/child-study-visa",
+        "https://www.gov.uk/student-visa"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "How many hours a week can I work on a Student visa during term time?",
+      "category": [
+        "visa"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/student-visa"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/child-study-visa",
+        "https://www.gov.uk/child-employment",
+        "https://www.gov.uk/student-visa",
+        "https://www.gov.uk/student-visa",
+        "https://www.gov.uk/skilled-worker-visa"
+      ],
+      "hit": true,
+      "rank": 3,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Are BRP (biometric residence permit) cards still valid?",
+      "category": [
+        "visa"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/biometric-residence-permits"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/biometric-residence-permits",
+        "https://www.gov.uk/biometric-residence-permits",
+        "https://www.gov.uk/change-circumstances-visa-brp",
+        "https://www.gov.uk/biometric-residence-permits",
+        "https://www.gov.uk/biometric-residence-permits"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "I'm on a Student visa - can I switch to a Skilled Worker visa after I graduate?",
+      "category": [
+        "visa",
+        "employment"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/student-visa"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/student-visa",
+        "https://www.gov.uk/skilled-worker-visa"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Who is eligible to apply for a National Insurance number?",
+      "category": [
+        "tax_ni"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/apply-national-insurance-number"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/national-insurance",
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/apply-national-insurance-number"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Can I start working before I get my National Insurance number?",
+      "category": [
+        "tax_ni"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/apply-national-insurance-number"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/start-a-job",
+        "https://www.gov.uk/national-insurance",
+        "https://www.gov.uk/guidance/starter-checklist-for-paye",
+        "https://www.gov.uk/find-national-insurance-number"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What is the Personal Allowance for Income Tax?",
+      "category": [
+        "tax_ni"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/income-tax-rates"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/income-tax",
+        "https://www.gov.uk/income-tax-rates",
+        "https://www.gov.uk/income-tax-rates",
+        "https://www.gov.uk/income-tax-rates",
+        "https://www.gov.uk/apply-tax-free-interest-on-savings"
+      ],
+      "hit": true,
+      "rank": 2,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Do full-time students have to pay Council Tax?",
+      "category": [
+        "housing"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/council-tax"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/council-tax",
+        "https://www.gov.uk/council-tax",
+        "https://www.gov.uk/council-tax",
+        "https://www.gov.uk/tax-foreign-income",
+        "https://www.gov.uk/council-tax-arrears"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Does my landlord have to protect my deposit?",
+      "category": [
+        "housing"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/tenancy-deposit-protection"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/tenancy-deposit-protection",
+        "https://www.gov.uk/private-renting",
+        "https://www.gov.uk/rent-room-in-your-home",
+        "https://www.gov.uk/deposit-protection-schemes-and-landlords",
+        "https://www.gov.uk/renting-a-room-in-someones-home-lodgers"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What types of tenancy exist for private renting in the UK?",
+      "category": [
+        "housing"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/private-renting"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/private-renting",
+        "https://www.gov.uk/renting-out-a-property",
+        "https://www.gov.uk/check-register-rents",
+        "https://www.gov.uk/park-mobile-homes",
+        "https://www.gov.uk/assured-periodic-tenancies-tenants"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What is the National Minimum Wage and does age affect it?",
+      "category": [
+        "employment"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/national-minimum-wage-rates"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/national-minimum-wage",
+        "https://www.gov.uk/national-minimum-wage-rates",
+        "https://www.gov.uk/child-employment",
+        "https://www.gov.uk/national-minimum-wage",
+        "https://www.gov.uk/national-minimum-wage-accommodation"
+      ],
+      "hit": true,
+      "rank": 2,
+      "is_refusal_case": false
+    },
+    {
+      "question": "How many weeks of paid holiday am I entitled to as a worker?",
+      "category": [
+        "employment"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/holiday-entitlement-rights"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/holiday-entitlement-rights",
+        "https://www.gov.uk/holiday-entitlement-rights",
+        "https://www.gov.uk/holiday-entitlement-rights",
+        "https://www.gov.uk/holiday-entitlement-rights",
+        "https://www.gov.uk/become-apprentice"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What can I use student finance to help pay for?",
+      "category": [
+        "education"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/student-finance"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/mature-student-university-funding",
+        "https://www.gov.uk/student-finance-forms",
+        "https://www.gov.uk/student-finance"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Can I get student finance if I've studied a degree before?",
+      "category": [
+        "education"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/student-finance"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/get-undergraduate-student-loan"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What is Attendance Allowance and who is it for?",
+      "category": [
+        "banking"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/attendance-allowance"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/financial-help-disabled",
+        "https://www.gov.uk/attendance-allowance",
+        "https://www.gov.uk/attendance-allowance",
+        "https://www.gov.uk/attendance-allowance",
+        "https://www.gov.uk/attendance-allowance"
+      ],
+      "hit": true,
+      "rank": 2,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What does the NHS entitlements migrant health guide cover?",
+      "category": [
+        "nhs"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "How do I register with a GP surgery in England?",
+      "category": [
+        "nhs"
+      ],
+      "expected_sources": [
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/"
+      ],
+      "retrieved_sources": [
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+        "https://www.nhs.uk/nhs-services/armed-forces-community/nhs-services-guide/",
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Can I bring my pet dog with me when I move to the UK to study?",
+      "category": [
+        "visa"
+      ],
+      "expected_sources": [],
+      "retrieved_sources": [
+        "https://www.gov.uk/study-uk-student-visa",
+        "https://www.gov.uk/study-uk-child-student-visa",
+        "https://www.gov.uk/transport-disabled",
+        "https://www.gov.uk/standard-visitor",
+        "https://www.gov.uk/standard-visitor"
+      ],
+      "hit": true,
+      "rank": null,
+      "is_refusal_case": true
+    }
+  ],
+  "hybrid": [
+    {
+      "question": "What can I not do on a Student visa?",
+      "category": [
+        "visa"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/student-visa"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/student-visa",
+        "https://www.gov.uk/graduate-visa",
+        "https://www.gov.uk/child-study-visa",
+        "https://www.gov.uk/parent-of-a-child-at-school-visa",
+        "https://www.gov.uk/study-uk-student-visa"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "How many hours a week can I work on a Student visa during term time?",
+      "category": [
+        "visa"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/student-visa"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/child-study-visa",
+        "https://www.gov.uk/child-employment",
+        "https://www.gov.uk/child-employment",
+        "https://www.gov.uk/student-visa",
+        "https://www.gov.uk/maximum-weekly-working-hours"
+      ],
+      "hit": true,
+      "rank": 4,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Are BRP (biometric residence permit) cards still valid?",
+      "category": [
+        "visa"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/biometric-residence-permits"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/biometric-residence-permits",
+        "https://www.gov.uk/change-circumstances-visa-brp",
+        "https://www.gov.uk/biometric-residence-permits",
+        "https://www.gov.uk/biometric-residence-permits",
+        "https://www.gov.uk/biometric-residence-permits"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "I'm on a Student visa - can I switch to a Skilled Worker visa after I graduate?",
+      "category": [
+        "visa",
+        "employment"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/student-visa"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/skilled-worker-visa",
+        "https://www.gov.uk/student-visa"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Who is eligible to apply for a National Insurance number?",
+      "category": [
+        "tax_ni"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/apply-national-insurance-number"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/guidance/national-insurance-number-applying-for-a-number-for-a-looked-after-child",
+        "https://www.gov.uk/apply-national-insurance-number"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Can I start working before I get my National Insurance number?",
+      "category": [
+        "tax_ni"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/apply-national-insurance-number"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/start-a-job",
+        "https://www.gov.uk/apply-national-insurance-number",
+        "https://www.gov.uk/national-insurance",
+        "https://www.gov.uk/national-insurance"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What is the Personal Allowance for Income Tax?",
+      "category": [
+        "tax_ni"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/income-tax-rates"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/income-tax-rates",
+        "https://www.gov.uk/income-tax-rates",
+        "https://www.gov.uk/income-tax",
+        "https://www.gov.uk/income-tax-rates",
+        "https://www.gov.uk/employee-tax-codes"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Do full-time students have to pay Council Tax?",
+      "category": [
+        "housing"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/council-tax"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/council-tax",
+        "https://www.gov.uk/council-tax",
+        "https://www.gov.uk/council-tax-arrears",
+        "https://www.gov.uk/council-tax-arrears",
+        "https://www.gov.uk/council-tax"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Does my landlord have to protect my deposit?",
+      "category": [
+        "housing"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/tenancy-deposit-protection"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/tenancy-deposit-protection",
+        "https://www.gov.uk/private-renting",
+        "https://www.gov.uk/renting-a-room-in-someones-home-lodgers",
+        "https://www.gov.uk/deposit-protection-schemes-and-landlords",
+        "https://www.gov.uk/rent-room-in-your-home"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What types of tenancy exist for private renting in the UK?",
+      "category": [
+        "housing"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/private-renting"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/private-renting",
+        "https://www.gov.uk/renting-out-a-property",
+        "https://www.gov.uk/assured-periodic-tenancies-tenants",
+        "https://www.gov.uk/private-renting",
+        "https://www.gov.uk/park-mobile-homes"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What is the National Minimum Wage and does age affect it?",
+      "category": [
+        "employment"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/national-minimum-wage-rates"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/national-minimum-wage",
+        "https://www.gov.uk/national-minimum-wage-rates",
+        "https://www.gov.uk/become-apprentice",
+        "https://www.gov.uk/national-minimum-wage",
+        "https://www.gov.uk/national-minimum-wage-accommodation"
+      ],
+      "hit": true,
+      "rank": 2,
+      "is_refusal_case": false
+    },
+    {
+      "question": "How many weeks of paid holiday am I entitled to as a worker?",
+      "category": [
+        "employment"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/holiday-entitlement-rights"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/holiday-entitlement-rights",
+        "https://www.gov.uk/holiday-entitlement-rights",
+        "https://www.gov.uk/holiday-entitlement-rights",
+        "https://www.gov.uk/holiday-entitlement-rights",
+        "https://www.gov.uk/holiday-entitlement-rights"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What can I use student finance to help pay for?",
+      "category": [
+        "education"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/student-finance"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/student-finance-forms",
+        "https://www.gov.uk/apply-for-student-finance",
+        "https://www.gov.uk/student-finance"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Can I get student finance if I've studied a degree before?",
+      "category": [
+        "education"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/student-finance"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/student-finance",
+        "https://www.gov.uk/repaying-your-student-loan",
+        "https://www.gov.uk/apply-for-student-finance"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What is Attendance Allowance and who is it for?",
+      "category": [
+        "banking"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/attendance-allowance"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/financial-help-disabled",
+        "https://www.gov.uk/attendance-allowance",
+        "https://www.gov.uk/attendance-allowance",
+        "https://www.gov.uk/attendance-allowance",
+        "https://www.gov.uk/attendance-allowance"
+      ],
+      "hit": true,
+      "rank": 2,
+      "is_refusal_case": false
+    },
+    {
+      "question": "What does the NHS entitlements migrant health guide cover?",
+      "category": [
+        "nhs"
+      ],
+      "expected_sources": [
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide"
+      ],
+      "retrieved_sources": [
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide",
+        "https://www.gov.uk/guidance/nhs-entitlements-migrant-health-guide"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "How do I register with a GP surgery in England?",
+      "category": [
+        "nhs"
+      ],
+      "expected_sources": [
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/"
+      ],
+      "retrieved_sources": [
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
+        "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/"
+      ],
+      "hit": true,
+      "rank": 1,
+      "is_refusal_case": false
+    },
+    {
+      "question": "Can I bring my pet dog with me when I move to the UK to study?",
+      "category": [
+        "visa"
+      ],
+      "expected_sources": [],
+      "retrieved_sources": [
+        "https://www.gov.uk/transport-disabled",
+        "https://www.gov.uk/study-uk-child-student-visa",
+        "https://www.gov.uk/study-uk-student-visa",
+        "https://www.gov.uk/transport-disabled",
+        "https://www.nhs.uk/using-the-nhs/about-the-nhs/your-choices-in-the-nhs/"
+      ],
+      "hit": true,
+      "rank": null,
+      "is_refusal_case": true
+    }
+  ]
+}

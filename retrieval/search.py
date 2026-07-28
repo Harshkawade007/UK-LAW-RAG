@@ -57,12 +57,11 @@ def _parents() -> dict:
     }
 
 
-def retrieve(question: str, top_k: int = 5, categories: list[str] | None = None,
-             pool: int = 15) -> list[dict]:
-    """Return up to top_k unique parent sections most relevant to the question.
+def dense_search(question: str, limit: int = 15,
+                 categories: list[str] | None = None) -> list[dict]:
+    """Semantic search: return the nearest child chunks as plain dicts.
 
-    categories: optional list to restrict the search (query routing, later).
-    pool: how many child hits to fetch before de-duping to parents.
+    Each hit is the child's payload plus a "score" (cosine similarity).
     """
     qvec = _model().encode(QUERY_PREFIX + question, normalize_embeddings=True)
 
@@ -73,23 +72,62 @@ def retrieve(question: str, top_k: int = 5, categories: list[str] | None = None,
         ])
 
     hits = _client().query_points(
-        COLLECTION, query=qvec.tolist(), limit=pool, query_filter=query_filter,
+        COLLECTION, query=qvec.tolist(), limit=limit, query_filter=query_filter,
     ).points
 
+    return [{**h.payload, "score": h.score} for h in hits]
+
+
+def expand_to_parents(child_hits: list[dict], top_k: int = 5) -> list[dict]:
+    """Follow each child's parent_id to its full parent section, de-duped.
+
+    This is the "big" half of small-to-big: children are precise needles, but
+    the LLM reads the whole surrounding section so it sees the caveats too.
+    """
     parents = _parents()
     results: list[dict] = []
     seen: set[str] = set()
-    for h in hits:
-        pid = h.payload["parent_id"]
+    for hit in child_hits:
+        pid = hit["parent_id"]
         if pid in seen:
             continue
         seen.add(pid)
         parent = parents.get(pid)
         if parent:
-            results.append({**parent, "score": h.score})
+            results.append({**parent, "score": hit.get("score")})
         if len(results) >= top_k:
             break
     return results
+
+
+MODES = ("rerank", "hybrid", "dense")
+
+
+def retrieve(question: str, top_k: int = 5, categories: list[str] | None = None,
+             mode: str = "rerank", pool: int = 25) -> list[dict]:
+    """Return up to top_k unique parent sections most relevant to the question.
+
+    mode:       "rerank" (hybrid + cross-encoder re-scoring, the full pipeline),
+                "hybrid" (BM25 + dense, RRF-fused), or "dense" (vector only,
+                the Week-1 baseline). The earlier modes are kept so eval can
+                A/B each stage against the next.
+    categories: optional list to restrict the search (query routing, later).
+    pool:       how many child hits to consider before de-duping to parents.
+    """
+    if mode == "dense":
+        child_hits = dense_search(question, limit=pool, categories=categories)
+    elif mode in ("hybrid", "rerank"):
+        from retrieval.hybrid import hybrid_search
+        child_hits = hybrid_search(question, limit=pool, categories=categories)
+        if mode == "rerank":
+            # Rerank the WHOLE pool, then let expand_to_parents cut to top_k.
+            # Truncating children here could yield fewer unique parents.
+            from retrieval.rerank import rerank
+            child_hits = rerank(question, child_hits)
+    else:
+        raise ValueError(f"unknown mode {mode!r} - use one of {MODES}")
+
+    return expand_to_parents(child_hits, top_k=top_k)
 
 
 def close() -> None:
