@@ -51,7 +51,7 @@ There are no tests, linter config, or build step yet — `eval/` is the closest 
 
 ## API & web UI
 
-`api/main.py` wraps the pipeline in FastAPI and serves a single-page UI from `api/static/index.html` (plain HTML/JS, no build step). `POST /chat` takes `{question, mode, top_k, generate}` and returns the answer plus every retrieved section with its score, so you can inspect retrieval directly. `generate: false` skips the LLM call entirely — free, and the fastest way to compare modes.
+`api/main.py` wraps the pipeline in FastAPI and serves a single-page UI from `api/static/index.html` (plain HTML/JS, no build step). `POST /chat` takes `{question, mode, top_k, generate}` and returns the answer plus every retrieved section with its score, so you can inspect retrieval directly. In `mode: "route"` the response also carries a `trace` listing the sub-queries actually searched and their categories (`null` in every other mode) — the UI renders it above the sections, which is the only way routing is visible from the outside. `generate: false` skips the LLM call entirely — free, and the fastest way to compare modes.
 
 Two constraints when running it:
 
@@ -64,17 +64,32 @@ Two constraints when running it:
 
 Retrieval is **parent-document (small-to-big)**: the ~250-token *children* are what get embedded and searched, but each child carries a `parent_id` and `expand_to_parents()` returns the full parent section, so the LLM sees a fact together with its caveats. Never embed parents — that was measured to blur retrieval.
 
-`retrieve(question, top_k=5, mode="rerank")` dispatches to one of three strategies. Each is the previous one plus a stage, and all share `expand_to_parents()`:
+`retrieve(question, top_k=5, mode="rerank")` dispatches to one of four strategies. Each is the previous one plus a stage, and all share `expand_to_parents()`:
 
 - **`dense_search`** (`search.py`) — bge-small query embedding vs the Qdrant `law_children` collection. Queries **must** be prefixed with `QUERY_PREFIX`; bge-v1.5 is asymmetric and passages were indexed without it.
 - **`hybrid_search`** (`hybrid.py`) — dense + BM25 over the same children, fused with RRF (`k=60`). BM25's tokenizer must be applied identically to documents and queries. The child text deliberately keeps its `Page > Section` breadcrumb, since that page title is what keyword matching uses to separate similar routes.
 - **`rerank`** (`rerank.py`) — a cross-encoder re-scores the whole fused pool by reading `(question, chunk)` *together*, which dense/BM25 structurally cannot do. Rerank the **entire** pool and let `expand_to_parents()` do the cutting; truncating children first can yield fewer than `top_k` unique parents.
+- **`route`** (`transform.py` + `_route_search` in `search.py`) — one LLM call rewrites the question into gov.uk vocabulary, optionally splits it, and tags categories; each branch is searched and reranked, then RRF-fused. **Opt-in, not the default** — it puts a ~2.4s LLM round-trip in front of every query, which would also make the UI's free `generate: false` inspection path cost credits.
 
 The earlier modes are kept deliberately so eval can A/B each stage — don't remove them.
+
+### Two non-obvious rules in `route` mode
+
+**Branch 0 is always the original question, unfiltered.** Routing may only reorder results, never remove them — see the category warning below. If `transform()` fails (bad token, timeout, malformed JSON) it returns `[]`, leaving one branch, which is exactly `mode="rerank"`. Keep that fail-safe.
+
+**Each branch is reranked against its *own* query, not the original.** This was measured, not assumed: reranking the merged pool against the user's wording reintroduces the exact vocabulary gap the rewrite exists to close. For *"can I work extra during reading week?"* the rewrite correctly pulls `Student visa > What you can and cannot do` into the pool, but scored against the colloquial original it loses to `Maximum weekly working hours`, which merely shares the words work/hours/week. Judging each branch on its own terms fixes that; branch 0 being the original means the user's literal intent still carries equal weight in the fusion.
 
 **Measuring retrieval changes:** `python -m eval.run_eval --compare`. On record: dense **0.8725** → hybrid **0.8971** → rerank **0.8971**.
 
 ⚠️ **The eval currently measures the wrong granularity — fix this before trusting it.** `eval/testset.py` lists `expected_sources` as *page* URLs, but retrieval and chunking work at *section* (parent) level. Every section of a page scores identically, so the metric cannot see within-page ranking at all. Measured directly, reranking displaces pool children ~5.1 positions and changes the top-5 parent set on 17 of 18 questions — including moving the exactly-correct `student-finance > If you've studied before` from rank 3 to rank 1 — yet MRR reports no change. Hit-rate is separately saturated at 17/17. **Score against expected `parent_id`s / section headings** before concluding any retrieval technique doesn't help.
+
+⚠️ **`category` is a filing artifact, not a semantic label — never hard-filter on it.** A page's category came from which seed list crawled it plus `dedupe.py`'s `CATEGORY_PRIORITY`, not from what the page is about. Consequences that will bite anything doing category routing:
+
+- `National Insurance: introduction` (21 sections) is filed under **`visa`**, while every other NI page sits in `tax_ni`.
+- All Council Tax content is under **`housing`**, not `tax_ni` (children mentioning "council tax": housing 45, banking 13, tax_ni 2, visa 2).
+- On the existing testset 1/18 questions already has its best section outside its labelled category (National Minimum Wage is labelled `employment`, but the winning section is in `tax_ni`).
+
+Since hit-rate is already saturated at 17/17, filtering **cannot raise it and can only lose sections**. `retrieval/transform.py`'s prompt documents the counter-intuitive placements for the LLM, and `_route_search` always keeps an unfiltered branch as the safety net. Verified: routing "how do I get a National Insurance number" sends the LLM to `tax_ni`, yet the `visa`-filed introduction page still surfaces via branch 0.
 
 **Known corpus limitation — do not mistake it for a retrieval bug.** The `student-visa` page in the corpus never states the work-hours rules (it only says hours "depend on what you're studying"), while `child-study-visa` explicitly says "part-time during term for up to 10 hours per week". So work-related Student visa questions correctly rank `child-study-visa` first — every retrieval method does this, including the cross-encoder, because it is the only chunk that substantively answers. **This is an ingestion gap, fixable only by fetching the missing content.** The same gap explains the "20 hours" test question.
 

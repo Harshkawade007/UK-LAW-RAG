@@ -64,6 +64,16 @@
   .body a{color:var(--accent)}
   .err{background:var(--warn-wash);border-color:var(--warn);color:var(--warn)}
   .hint{color:var(--ink-faint);font-size:.82rem}
+
+  .trace{margin:0 0 .8rem;padding:.55rem .7rem;background:var(--surface-2);
+         border-radius:8px;font-size:.82rem;color:var(--ink-soft)}
+  .trace b{color:var(--ink-faint);font-weight:600;text-transform:uppercase;
+           letter-spacing:.08em;font-size:.7rem}
+  .trace li{margin:.3rem 0;list-style:none}
+  .trace ul{margin:.35rem 0 0;padding:0}
+  .trace .orig{color:var(--ink-faint)}
+  .tag{font-family:var(--mono);font-size:.72em;background:var(--accent-wash);
+       color:var(--accent);border-radius:4px;padding:0 .35em;margin-left:.3em}
 </style>
 </head>
 <body>
@@ -78,6 +88,7 @@
         <label><input type="radio" name="mode" value="dense"><span>dense</span></label>
         <label><input type="radio" name="mode" value="hybrid"><span>hybrid</span></label>
         <label><input type="radio" name="mode" value="rerank" checked><span>rerank</span></label>
+        <label><input type="radio" name="mode" value="route"><span>route</span></label>
       </div>
       <label class="chk"><input type="checkbox" id="gen" checked> generate answer</label>
       <button id="go">Ask</button>
@@ -110,7 +121,20 @@ function render(d) {
       <p class="hint" style="margin:0">Retrieval only — tick “generate answer” for a written response.</p></div>`;
   }
 
-  html += `<div class="panel"><h2>Retrieved sections (${d.sources.length})</h2>`;
+  html += `<div class="panel">`;
+  // In route mode, show what the rewrite actually searched. The first branch is
+  // always the untouched question, so label it — that's the safety net that
+  // stops a wrong route from losing sections.
+  if (d.trace && d.trace.length) {
+    html += `<div class="trace"><b>Searched ${d.trace.length} queries</b><ul>`;
+    d.trace.forEach((b, i) => {
+      const tags = (b.categories || []).map(c => `<span class="tag">${esc(c)}</span>`).join("");
+      const label = i === 0 ? ` <span class="orig">(original, unfiltered)</span>` : "";
+      html += `<li>${esc(b.query)}${tags}${label}</li>`;
+    });
+    html += `</ul></div>`;
+  }
+  html += `<h2>Retrieved sections (${d.sources.length})</h2>`;
   for (const s of d.sources) {
     const score = s.score == null ? "" : `<span class="score">${s.score.toFixed(3)}</span>`;
     html += `<details>

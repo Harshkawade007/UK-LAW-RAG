@@ -182,7 +182,9 @@ def main():
                         help="retrieval mode to evaluate (default: rerank)")
     parser.add_argument("--compare", nargs="*", metavar="MODE", default=None,
                         help="run several modes and print a rank-change table "
-                             "(default: dense hybrid rerank)")
+                             "(default: dense hybrid rerank). 'route' can be "
+                             "named explicitly but is left out of the default "
+                             "set because it makes an LLM call per question.")
     parser.add_argument("--with-answers", action="store_true",
                         help="also run full generation and save answers to eval/results/ (uses API credits)")
     args = parser.parse_args()

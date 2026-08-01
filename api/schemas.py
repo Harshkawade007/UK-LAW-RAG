@@ -35,9 +35,20 @@ class Timings(BaseModel):
     generation_ms: int | None = None
 
 
+class Branch(BaseModel):
+    """One search actually run in "route" mode - a query plus its filter.
+
+    The first branch is always the user's original question, unfiltered.
+    """
+    query: str
+    categories: list[str] | None = None
+
+
 class ChatResponse(BaseModel):
     question: str
     mode: str
     answer: str | None = None
     sources: list[Source]
     timings: Timings
+    # Only populated in "route" mode; otherwise there is nothing to show.
+    trace: list[Branch] | None = None

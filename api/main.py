@@ -27,8 +27,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.schemas import ChatRequest, ChatResponse, Source, Timings
-from retrieval.search import retrieve, close, MODES
+from api.schemas import Branch, ChatRequest, ChatResponse, Source, Timings
+from retrieval.search import retrieve, retrieve_traced, close, MODES
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -52,7 +52,7 @@ def chat(req: ChatRequest) -> ChatResponse:
         raise HTTPException(400, f"unknown mode {req.mode!r}; use one of {list(MODES)}")
 
     t0 = time.perf_counter()
-    parents = retrieve(req.question, top_k=req.top_k, mode=req.mode)
+    parents, trace = retrieve_traced(req.question, top_k=req.top_k, mode=req.mode)
     retrieval_ms = int((time.perf_counter() - t0) * 1000)
 
     sources = [
@@ -83,6 +83,7 @@ def chat(req: ChatRequest) -> ChatResponse:
         answer=answer,
         sources=sources,
         timings=Timings(retrieval_ms=retrieval_ms, generation_ms=generation_ms),
+        trace=[Branch(**b) for b in trace] if trace else None,
     )
 
 
