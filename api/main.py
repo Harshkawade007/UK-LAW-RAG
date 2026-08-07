@@ -27,7 +27,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.schemas import Branch, ChatRequest, ChatResponse, Source, Timings
+from api.schemas import (
+    ChatRequest, ChatResponse, CompareRequest, CompareResponse,
+    PipelineReview, Source, Timings, Trace,
+)
 from retrieval.search import retrieve, retrieve_traced, close, MODES
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -83,7 +86,29 @@ def chat(req: ChatRequest) -> ChatResponse:
         answer=answer,
         sources=sources,
         timings=Timings(retrieval_ms=retrieval_ms, generation_ms=generation_ms),
-        trace=[Branch(**b) for b in trace] if trace else None,
+        trace=Trace(**trace) if trace else None,
+    )
+
+
+@app.post("/compare", response_model=CompareResponse)
+def compare(req: CompareRequest) -> CompareResponse:
+    """Run the question through every pipeline and review what each retrieved.
+
+    Explanation feature, not the search path: it makes the per-query
+    differences between pipelines visible, which aggregate metrics hide. Slow
+    on purpose (all five pipelines plus a judging call) and only ever runs
+    when explicitly asked for.
+    """
+    from agent.review import review_pipelines
+
+    t0 = time.perf_counter()
+    blocks = review_pipelines(req.question, top_k=req.top_k)
+    total_ms = int((time.perf_counter() - t0) * 1000)
+
+    return CompareResponse(
+        question=req.question,
+        total_ms=total_ms,
+        pipelines=[PipelineReview(**b) for b in blocks],
     )
 
 

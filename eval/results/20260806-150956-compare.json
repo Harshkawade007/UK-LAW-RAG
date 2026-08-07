@@ -1,0 +1,1832 @@
+{
+  "metrics": {
+    "crag": {
+      "mrr": 0.6743243243243243,
+      "hit_rate": 31
+    },
+    "agentic": {
+      "mrr": 0.6472972972972972,
+      "hit_rate": 30
+    }
+  },
+  "runs": {
+    "crag": [
+      {
+        "question": "What can I not do on a Student visa?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/student-visa#6"
+        ],
+        "retrieved_parent_ids": [
+          "visa/student-visa#6",
+          "visa/parent-of-a-child-at-school-visa#4",
+          "visa/study-uk-student-visa#1",
+          "visa/student-visa#41",
+          "visa/graduate-visa#7"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 16.25,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "How many hours a week can I work on a Student visa during term time?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/student-visa#6"
+        ],
+        "retrieved_parent_ids": [
+          "visa/child-study-visa#5",
+          "employment/child-employment#10",
+          "employment/maximum-weekly-working-hours#1",
+          "visa/student-visa#8",
+          "employment/maximum-weekly-working-hours#4"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 4.15,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Are BRP (biometric residence permit) cards still valid?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/biometric-residence-permits#0"
+        ],
+        "retrieved_parent_ids": [
+          "visa/biometric-residence-permits#0",
+          "visa/biometric-residence-permits#3",
+          "visa/change-circumstances-visa-brp#1",
+          "visa/biometric-residence-permits#1",
+          "visa/biometric-residence-permits#2"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 4.62,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "I'm on a Student visa - can I switch to a Skilled Worker visa after I graduate?",
+        "category": [
+          "visa",
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "visa/skilled-worker-visa#72",
+          "visa/skilled-worker-visa#73"
+        ],
+        "retrieved_parent_ids": [
+          "visa/skilled-worker-visa#74",
+          "visa/skilled-worker-visa#72",
+          "visa/skilled-worker-visa#73",
+          "visa/skilled-worker-visa#46",
+          "visa/skilled-worker-visa#78"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 5.51,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Who is eligible to apply for a National Insurance number?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/apply-national-insurance-number#1"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/apply-national-insurance-number#1",
+          "tax_ni/apply-national-insurance-number#5",
+          "tax_ni/apply-national-insurance-number#4",
+          "tax_ni/apply-national-insurance-number#2",
+          "tax_ni/guidance__national-insurance-number-applying-for-a-number-for-a-looked-after-child#1"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 4.24,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Can I start working before I get my National Insurance number?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/apply-national-insurance-number#1"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/apply-national-insurance-number#1",
+          "tax_ni/start-a-job#1",
+          "tax_ni/find-national-insurance-number#0",
+          "tax_ni/national-insurance-if-you-go-abroad#2",
+          "tax_ni/guidance__starter-checklist-for-paye#3"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 4.99,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "What is the Personal Allowance for Income Tax?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/income-tax-rates#2"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/income-tax-rates#2",
+          "visa/income-tax#2",
+          "tax_ni/income-tax-rates#7",
+          "tax_ni/income-tax-rates#6",
+          "tax_ni/income-tax-rates#4"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 3.37,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Do full-time students have to pay Council Tax?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/council-tax#6"
+        ],
+        "retrieved_parent_ids": [
+          "housing/council-tax#6",
+          "housing/council-tax#3",
+          "housing/council-tax#4",
+          "housing/council-tax#9",
+          "housing/council-tax-arrears#1"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 3.35,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Does my landlord have to protect my deposit?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/private-renting#32",
+          "housing/tenancy-deposit-protection#1"
+        ],
+        "retrieved_parent_ids": [
+          "housing/private-renting#32",
+          "housing/tenancy-deposit-protection#4",
+          "housing/tenancy-deposit-protection#5",
+          "housing/tenancy-deposit-protection#1",
+          "housing/deposit-protection-schemes-and-landlords#7"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 12.99,
+        "grade": "irrelevant",
+        "escalated": true,
+        "selected": null
+      },
+      {
+        "question": "What types of tenancy exist for private renting in the UK?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/private-renting#1"
+        ],
+        "retrieved_parent_ids": [
+          "housing/private-renting#1",
+          "housing/private-renting-evictions#6",
+          "housing/private-renting-evictions#3",
+          "housing/private-renting#3",
+          "housing/renting-out-a-property#1"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 3.66,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "What is the National Minimum Wage and does age affect it?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/national-minimum-wage-rates#0",
+          "employment/national-minimum-wage-rates#1"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/national-minimum-wage#1",
+          "employment/national-minimum-wage-rates#0",
+          "tax_ni/national-minimum-wage#3",
+          "employment/national-minimum-wage-accommodation#10",
+          "tax_ni/national-minimum-wage#4"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 4.8,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "How many weeks of paid holiday am I entitled to as a worker?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/holiday-entitlement-rights#1"
+        ],
+        "retrieved_parent_ids": [
+          "employment/holiday-entitlement-rights#10",
+          "employment/holiday-entitlement-rights#1",
+          "employment/holiday-entitlement-rights#2",
+          "employment/holiday-entitlement-rights#14",
+          "employment/holiday-entitlement-rights#7"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 4.16,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "What can I use student finance to help pay for?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [
+          "education/student-finance#1"
+        ],
+        "retrieved_parent_ids": [
+          "education/student-finance#1",
+          "education/student-finance-forms#0",
+          "education/student-finance#10",
+          "education/student-finance#25",
+          "education/student-finance#15"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 3.71,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Can I get student finance if I've studied a degree before?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [
+          "education/student-finance#7"
+        ],
+        "retrieved_parent_ids": [
+          "education/student-finance#7",
+          "education/student-finance#4",
+          "education/student-finance#6",
+          "education/apply-for-student-finance#4",
+          "education/student-finance#25"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 4.48,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "What is Attendance Allowance and who is it for?",
+        "category": [
+          "banking"
+        ],
+        "expected_parent_ids": [
+          "banking/attendance-allowance#1",
+          "banking/attendance-allowance#6"
+        ],
+        "retrieved_parent_ids": [
+          "banking/financial-help-disabled#12",
+          "banking/attendance-allowance#9",
+          "banking/attendance-allowance#3",
+          "banking/attendance-allowance#21",
+          "banking/attendance-allowance#1"
+        ],
+        "hit": true,
+        "rank": 5,
+        "is_refusal_case": false,
+        "seconds": 4.1,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "What does the NHS entitlements migrant health guide cover?",
+        "category": [
+          "nhs"
+        ],
+        "expected_parent_ids": [
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#1"
+        ],
+        "retrieved_parent_ids": [
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#5",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#3",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#12",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#4",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#14"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 3.92,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "How do I register with a GP surgery in England?",
+        "category": [
+          "nhs"
+        ],
+        "expected_parent_ids": [
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#0",
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#1"
+        ],
+        "retrieved_parent_ids": [
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#0",
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#1",
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#4",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#7",
+          "nhs/nhs-services__visiting-or-moving-to-england__how-to-access-nhs-services-in-england-if-you-are-visiting-from-abroad#3"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 4.08,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "After I finish my course can I stay in the UK and look for a job?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/graduate-visa#1",
+          "visa/graduate-visa#7"
+        ],
+        "retrieved_parent_ids": [
+          "visa/graduate-visa#1",
+          "visa/student-visa#3",
+          "visa/standard-visitor#1",
+          "visa/student-visa#34",
+          "visa/study-uk-student-visa#8"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 3.99,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "My student visa runs out next month - can I still apply for the graduate route?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/graduate-visa#5"
+        ],
+        "retrieved_parent_ids": [
+          "visa/graduate-visa#5",
+          "visa/graduate-visa#2",
+          "visa/graduate-visa#1",
+          "visa/graduate-visa#27",
+          "visa/graduate-visa#8"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 14.39,
+        "grade": "irrelevant",
+        "escalated": true,
+        "selected": null
+      },
+      {
+        "question": "How long does a graduate visa last if I have a PhD?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/graduate-visa#3"
+        ],
+        "retrieved_parent_ids": [
+          "visa/graduate-visa#3",
+          "visa/student-visa#34",
+          "visa/graduate-visa#1",
+          "visa/student-visa#3",
+          "visa/graduate-visa#11"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 4.2,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Do I have to pay something for the NHS when I apply for my visa?",
+        "category": [
+          "nhs",
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "nhs/healthcare-immigration-application#1",
+          "nhs/healthcare-immigration-application#3"
+        ],
+        "retrieved_parent_ids": [
+          "nhs/healthcare-immigration-application#2",
+          "nhs/healthcare-immigration-application#4",
+          "nhs/healthcare-immigration-application#3",
+          "nhs/healthcare-immigration-application#11",
+          "visa/apply-to-come-to-the-uk#6"
+        ],
+        "hit": true,
+        "rank": 3,
+        "is_refusal_case": false,
+        "seconds": 3.29,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "How much is the health surcharge per year for a student?",
+        "category": [
+          "nhs",
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "nhs/healthcare-immigration-application#6"
+        ],
+        "retrieved_parent_ids": [
+          "visa/parent-of-a-child-at-school-visa#7",
+          "nhs/nhs-services__visiting-or-moving-to-england__moving-to-england-from-outside-the-european-economic-area-eea#3",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#8",
+          "visa/graduate-visa#14",
+          "nhs/healthcare-immigration-application#7"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 3.21,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "When can I actually start using the NHS for free after I arrive?",
+        "category": [
+          "nhs",
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "nhs/healthcare-immigration-application#2"
+        ],
+        "retrieved_parent_ids": [
+          "nhs/healthcare-immigration-application#2",
+          "nhs/nhs-services__prescriptions__save-money-with-a-prescription-prepayment-certificate-ppc#1",
+          "nhs/nhs-services__visiting-or-moving-to-england__moving-to-england-from-eu-countries-or-norway-iceland-liectenstein-or-switzerland#0",
+          "nhs/nhs-services__visiting-or-moving-to-england__visitors-from-eu-countries-norway-iceland-liechtenstein-or-switzerland#5",
+          "nhs/nhs-services__opticians__how-often-can-i-have-a-free-nhs-eye-test#3"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 3.78,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "My new boss wants proof I'm allowed to work here - what do I show them?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/prove-right-to-work#3"
+        ],
+        "retrieved_parent_ids": [
+          "employment/prove-right-to-work#16",
+          "employment/prove-right-to-work#5",
+          "employment/prove-right-to-work#10",
+          "employment/prove-right-to-work#13",
+          "employment/prove-right-to-work#14"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 3.08,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Can my employer take money out of my wages?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/understanding-your-pay#14"
+        ],
+        "retrieved_parent_ids": [
+          "banking/debt-payments-from-your-wages#1",
+          "banking/debt-payments-from-your-wages#9",
+          "banking/make-court-claim-for-money#29",
+          "housing/options-for-dealing-with-your-debts#18",
+          "banking/debt-payments-from-your-wages#2"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 3.9,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "I work part time - should I get the same hourly rate as full time staff?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/understanding-your-pay#2"
+        ],
+        "retrieved_parent_ids": [
+          "employment/understanding-your-pay#2",
+          "employment/holiday-entitlement-rights#15",
+          "employment/holiday-entitlement-rights#14",
+          "employment/holiday-entitlement-rights#11",
+          "employment/maximum-weekly-working-hours#8"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 5.01,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "When do I actually start paying back my student loan?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/repaying-your-student-loan#12"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/repaying-your-student-loan#12",
+          "tax_ni/repaying-your-student-loan#1",
+          "tax_ni/repaying-your-student-loan#29",
+          "education/student-finance-for-existing-students#5",
+          "tax_ni/repaying-your-student-loan#32"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 3.52,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Will I get charged extra if I pay my student loan off early?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/repaying-your-student-loan#18"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/repaying-your-student-loan#29",
+          "tax_ni/repaying-your-student-loan#35",
+          "tax_ni/repaying-your-student-loan#18",
+          "education/advanced-learner-loan#2",
+          "tax_ni/repaying-your-student-loan#24"
+        ],
+        "hit": true,
+        "rank": 3,
+        "is_refusal_case": false,
+        "seconds": 4.08,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "I'm going home for 6 months - do I need to tell anyone about my student loan?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/repaying-your-student-loan#3"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/repaying-your-student-loan#3",
+          "tax_ni/repaying-your-student-loan#54",
+          "tax_ni/repaying-your-student-loan#31",
+          "tax_ni/repaying-your-student-loan#32",
+          "tax_ni/repaying-your-student-loan#4"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 4.79,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "If I rent out my spare room, do I have to protect my lodger's deposit?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/rent-room-in-your-home#16"
+        ],
+        "retrieved_parent_ids": [
+          "housing/renting-a-room-in-someones-home-lodgers#7",
+          "housing/rent-room-in-your-home#8",
+          "housing/rent-room-in-your-home#16",
+          "housing/deposit-protection-schemes-and-landlords#4",
+          "housing/rent-room-in-your-home#19"
+        ],
+        "hit": true,
+        "rank": 3,
+        "is_refusal_case": false,
+        "seconds": 3.11,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "I've got a lodger living with me - who pays the council tax?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/rent-room-in-your-home#12"
+        ],
+        "retrieved_parent_ids": [
+          "housing/council-tax#3",
+          "tax_ni/tax-sell-home#11",
+          "housing/council-tax#11",
+          "housing/rent-room-in-your-home#12",
+          "housing/council-tax#12"
+        ],
+        "hit": true,
+        "rank": 4,
+        "is_refusal_case": false,
+        "seconds": 2.82,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "My landlord wants me to move out - what do they actually have to do first?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/private-renting-evictions#1"
+        ],
+        "retrieved_parent_ids": [
+          "housing/private-renting#26",
+          "housing/assured-periodic-tenancies-tenants#26",
+          "housing/renting-out-a-property#14",
+          "housing/private-renting-evictions#5",
+          "housing/renting-out-a-property#19"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 4.83,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Do I need a TB test before I come to the UK to study?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/tb-test-visa#1"
+        ],
+        "retrieved_parent_ids": [
+          "visa/tb-test-visa#1",
+          "visa/study-uk-student-visa#2",
+          "visa/study-uk-child-student-visa#2",
+          "visa/tb-test-visa#3",
+          "visa/tb-test-visa#6"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 5.13,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Who is exempt from the TB test?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/tb-test-visa#3"
+        ],
+        "retrieved_parent_ids": [
+          "visa/tb-test-visa#3",
+          "visa/tb-test-visa#5",
+          "visa/tb-test-visa#4",
+          "visa/tb-test-visa#12",
+          "visa/tb-test-visa#9"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 2.93,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "What happens at UK border control when I arrive?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/uk-border-control#10",
+          "visa/uk-border-control#14"
+        ],
+        "retrieved_parent_ids": [
+          "visa/uk-border-control#11",
+          "visa/uk-border-control#10",
+          "visa/transit-visa#2",
+          "visa/uk-border-control#14",
+          "visa/uk-border-control#21"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 4.32,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Can I get help paying for childcare while I'm studying?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [
+          "education/childcare-grant#1",
+          "education/childcare-grant#6"
+        ],
+        "retrieved_parent_ids": [
+          "education/grant-bursary-adult-learners#0",
+          "education/childcare-grant#1",
+          "education/get-undergraduate-student-loan#3",
+          "education/further-education-courses#8",
+          "education/advanced-learner-loan#4"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 5.39,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "How much childcare grant can I get for two kids?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [
+          "education/childcare-grant#3",
+          "education/childcare-grant#4"
+        ],
+        "retrieved_parent_ids": [
+          "education/childcare-grant#4",
+          "education/childcare-grant#3",
+          "education/childcare-grant#6",
+          "banking/child-benefit#5",
+          "employment/sure-start-maternity-grant#3"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 4.28,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": null
+      },
+      {
+        "question": "Can I bring my pet dog with me when I move to the UK to study?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [],
+        "retrieved_parent_ids": [
+          "visa/standard-visitor#4",
+          "visa/study-uk-student-visa#6",
+          "visa/study-uk-child-student-visa#6",
+          "visa/standard-visitor#1",
+          "visa/uk-border-control#6"
+        ],
+        "hit": true,
+        "rank": null,
+        "is_refusal_case": true,
+        "seconds": 13.02,
+        "grade": "irrelevant",
+        "escalated": true,
+        "selected": null
+      },
+      {
+        "question": "Which UK university is best for computer science?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [],
+        "retrieved_parent_ids": [
+          "education/student-finance#7",
+          "education/mature-student-university-funding#2",
+          "education/student-finance#6",
+          "education/student-finance#11",
+          "education/student-finance#20"
+        ],
+        "hit": true,
+        "rank": null,
+        "is_refusal_case": true,
+        "seconds": 9.07,
+        "grade": "irrelevant",
+        "escalated": true,
+        "selected": null
+      }
+    ],
+    "agentic": [
+      {
+        "question": "What can I not do on a Student visa?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/student-visa#6"
+        ],
+        "retrieved_parent_ids": [
+          "visa/student-visa#6",
+          "visa/parent-of-a-child-at-school-visa#4",
+          "visa/study-uk-student-visa#1",
+          "visa/student-visa#41",
+          "visa/graduate-visa#7"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 6.23,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "How many hours a week can I work on a Student visa during term time?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/student-visa#6"
+        ],
+        "retrieved_parent_ids": [
+          "visa/child-study-visa#5",
+          "employment/child-employment#10",
+          "employment/maximum-weekly-working-hours#1",
+          "visa/student-visa#8",
+          "employment/maximum-weekly-working-hours#4"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 3.4,
+        "grade": null,
+        "escalated": null,
+        "selected": "rerank"
+      },
+      {
+        "question": "Are BRP (biometric residence permit) cards still valid?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/biometric-residence-permits#0"
+        ],
+        "retrieved_parent_ids": [
+          "visa/biometric-residence-permits#0",
+          "visa/change-circumstances-visa-brp#1",
+          "visa/biometric-residence-permits#3",
+          "visa/biometric-residence-permits#1",
+          "visa/biometric-residence-permits#4"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 1.65,
+        "grade": null,
+        "escalated": null,
+        "selected": "hybrid"
+      },
+      {
+        "question": "I'm on a Student visa - can I switch to a Skilled Worker visa after I graduate?",
+        "category": [
+          "visa",
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "visa/skilled-worker-visa#72",
+          "visa/skilled-worker-visa#73"
+        ],
+        "retrieved_parent_ids": [
+          "visa/skilled-worker-visa#74",
+          "visa/skilled-worker-visa#72",
+          "visa/skilled-worker-visa#73",
+          "visa/skilled-worker-visa#46",
+          "visa/skilled-worker-visa#78"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 7.04,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "Who is eligible to apply for a National Insurance number?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/apply-national-insurance-number#1"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/apply-national-insurance-number#1",
+          "tax_ni/apply-national-insurance-number#5",
+          "tax_ni/apply-national-insurance-number#4",
+          "tax_ni/apply-national-insurance-number#2",
+          "tax_ni/guidance__national-insurance-number-applying-for-a-number-for-a-looked-after-child#1"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 6.93,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "Can I start working before I get my National Insurance number?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/apply-national-insurance-number#1"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/apply-national-insurance-number#1",
+          "tax_ni/start-a-job#1",
+          "tax_ni/find-national-insurance-number#0",
+          "tax_ni/national-insurance-if-you-go-abroad#2",
+          "tax_ni/guidance__starter-checklist-for-paye#3"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 5.21,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "What is the Personal Allowance for Income Tax?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/income-tax-rates#2"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/income-tax-rates#2",
+          "tax_ni/income-tax-rates#6",
+          "visa/income-tax#2",
+          "tax_ni/income-tax-rates#3",
+          "tax_ni/employee-tax-codes#5"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 2.05,
+        "grade": null,
+        "escalated": null,
+        "selected": "hybrid"
+      },
+      {
+        "question": "Do full-time students have to pay Council Tax?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/council-tax#6"
+        ],
+        "retrieved_parent_ids": [
+          "housing/council-tax#6",
+          "housing/council-tax#3",
+          "housing/council-tax#4",
+          "housing/council-tax#9",
+          "housing/council-tax-arrears#1"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 5.87,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "Does my landlord have to protect my deposit?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/private-renting#32",
+          "housing/tenancy-deposit-protection#1"
+        ],
+        "retrieved_parent_ids": [
+          "housing/private-renting#32",
+          "housing/tenancy-deposit-protection#4",
+          "housing/deposit-protection-schemes-and-landlords#1",
+          "housing/deposit-protection-schemes-and-landlords#7",
+          "housing/tenancy-deposit-protection#12"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 14.48,
+        "grade": "irrelevant",
+        "escalated": true,
+        "selected": "crag"
+      },
+      {
+        "question": "What types of tenancy exist for private renting in the UK?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/private-renting#1"
+        ],
+        "retrieved_parent_ids": [
+          "housing/private-renting#1",
+          "housing/private-renting-evictions#6",
+          "housing/private-renting-evictions#3",
+          "housing/private-renting#3",
+          "housing/renting-out-a-property#1"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 6.29,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "What is the National Minimum Wage and does age affect it?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/national-minimum-wage-rates#0",
+          "employment/national-minimum-wage-rates#1"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/national-minimum-wage#1",
+          "employment/national-minimum-wage-rates#0",
+          "tax_ni/national-minimum-wage#3",
+          "employment/national-minimum-wage-accommodation#10",
+          "tax_ni/national-minimum-wage#4"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 6.51,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "How many weeks of paid holiday am I entitled to as a worker?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/holiday-entitlement-rights#1"
+        ],
+        "retrieved_parent_ids": [
+          "employment/holiday-entitlement-rights#10",
+          "employment/holiday-entitlement-rights#1",
+          "employment/holiday-entitlement-rights#2",
+          "employment/holiday-entitlement-rights#14",
+          "employment/holiday-entitlement-rights#7"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 6.51,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "What can I use student finance to help pay for?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [
+          "education/student-finance#1"
+        ],
+        "retrieved_parent_ids": [
+          "education/student-finance#1",
+          "education/student-finance-forms#0",
+          "education/student-finance#10",
+          "education/student-finance#25",
+          "education/student-finance#15"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 5.32,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "Can I get student finance if I've studied a degree before?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [
+          "education/student-finance#7"
+        ],
+        "retrieved_parent_ids": [
+          "education/student-finance#7",
+          "education/student-finance#4",
+          "education/student-finance#6",
+          "education/apply-for-student-finance#4",
+          "education/student-finance#25"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 7.27,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "What is Attendance Allowance and who is it for?",
+        "category": [
+          "banking"
+        ],
+        "expected_parent_ids": [
+          "banking/attendance-allowance#1",
+          "banking/attendance-allowance#6"
+        ],
+        "retrieved_parent_ids": [
+          "banking/financial-help-disabled#12",
+          "banking/attendance-allowance#9",
+          "banking/attendance-allowance#3",
+          "banking/attendance-allowance#21",
+          "banking/attendance-allowance#1"
+        ],
+        "hit": true,
+        "rank": 5,
+        "is_refusal_case": false,
+        "seconds": 5.89,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "What does the NHS entitlements migrant health guide cover?",
+        "category": [
+          "nhs"
+        ],
+        "expected_parent_ids": [
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#1"
+        ],
+        "retrieved_parent_ids": [
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#5",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#3",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#12",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#4",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#14"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 6.58,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "How do I register with a GP surgery in England?",
+        "category": [
+          "nhs"
+        ],
+        "expected_parent_ids": [
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#0",
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#1"
+        ],
+        "retrieved_parent_ids": [
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#0",
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#1",
+          "nhs/nhs-services__gps__how-to-register-with-a-gp-surgery#4",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#7",
+          "nhs/nhs-services__visiting-or-moving-to-england__how-to-access-nhs-services-in-england-if-you-are-visiting-from-abroad#3"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 6.27,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "After I finish my course can I stay in the UK and look for a job?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/graduate-visa#1",
+          "visa/graduate-visa#7"
+        ],
+        "retrieved_parent_ids": [
+          "visa/graduate-visa#1",
+          "visa/student-visa#3",
+          "visa/standard-visitor#1",
+          "visa/student-visa#34",
+          "visa/study-uk-student-visa#8"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 9.37,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "My student visa runs out next month - can I still apply for the graduate route?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/graduate-visa#5"
+        ],
+        "retrieved_parent_ids": [
+          "visa/graduate-visa#5",
+          "visa/graduate-visa#1",
+          "visa/student-visa#34",
+          "visa/graduate-visa#3",
+          "visa/graduate-visa#2"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 6.58,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "How long does a graduate visa last if I have a PhD?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/graduate-visa#3"
+        ],
+        "retrieved_parent_ids": [
+          "visa/graduate-visa#3",
+          "visa/student-visa#3",
+          "visa/graduate-visa#2",
+          "visa/skilled-worker-visa#62",
+          "visa/graduate-visa#21"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 1.91,
+        "grade": null,
+        "escalated": null,
+        "selected": "hybrid"
+      },
+      {
+        "question": "Do I have to pay something for the NHS when I apply for my visa?",
+        "category": [
+          "nhs",
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "nhs/healthcare-immigration-application#1",
+          "nhs/healthcare-immigration-application#3"
+        ],
+        "retrieved_parent_ids": [
+          "nhs/healthcare-immigration-application#2",
+          "nhs/healthcare-immigration-application#4",
+          "nhs/healthcare-immigration-application#3",
+          "nhs/healthcare-immigration-application#11",
+          "visa/apply-to-come-to-the-uk#6"
+        ],
+        "hit": true,
+        "rank": 3,
+        "is_refusal_case": false,
+        "seconds": 6.05,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "How much is the health surcharge per year for a student?",
+        "category": [
+          "nhs",
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "nhs/healthcare-immigration-application#6"
+        ],
+        "retrieved_parent_ids": [
+          "visa/parent-of-a-child-at-school-visa#7",
+          "nhs/nhs-services__visiting-or-moving-to-england__moving-to-england-from-outside-the-european-economic-area-eea#3",
+          "nhs/guidance__nhs-entitlements-migrant-health-guide#8",
+          "visa/graduate-visa#6",
+          "visa/student-visa#4"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 2.08,
+        "grade": null,
+        "escalated": null,
+        "selected": "hybrid"
+      },
+      {
+        "question": "When can I actually start using the NHS for free after I arrive?",
+        "category": [
+          "nhs",
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "nhs/healthcare-immigration-application#2"
+        ],
+        "retrieved_parent_ids": [
+          "nhs/healthcare-immigration-application#2",
+          "nhs/nhs-services__prescriptions__save-money-with-a-prescription-prepayment-certificate-ppc#1",
+          "nhs/nhs-services__visiting-or-moving-to-england__moving-to-england-from-eu-countries-or-norway-iceland-liectenstein-or-switzerland#0",
+          "nhs/nhs-services__visiting-or-moving-to-england__visitors-from-eu-countries-norway-iceland-liechtenstein-or-switzerland#5",
+          "nhs/nhs-services__opticians__how-often-can-i-have-a-free-nhs-eye-test#3"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 6.61,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "My new boss wants proof I'm allowed to work here - what do I show them?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/prove-right-to-work#3"
+        ],
+        "retrieved_parent_ids": [
+          "employment/prove-right-to-work#16",
+          "employment/prove-right-to-work#10",
+          "employment/prove-right-to-work#9",
+          "employment/prove-right-to-work#5",
+          "employment/prove-right-to-work#11"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 7.01,
+        "grade": null,
+        "escalated": null,
+        "selected": "route"
+      },
+      {
+        "question": "Can my employer take money out of my wages?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/understanding-your-pay#14"
+        ],
+        "retrieved_parent_ids": [
+          "banking/debt-payments-from-your-wages#1",
+          "banking/debt-payments-from-your-wages#9",
+          "banking/make-court-claim-for-money#29",
+          "housing/options-for-dealing-with-your-debts#18",
+          "banking/debt-payments-from-your-wages#2"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 7.23,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "I work part time - should I get the same hourly rate as full time staff?",
+        "category": [
+          "employment"
+        ],
+        "expected_parent_ids": [
+          "employment/understanding-your-pay#2"
+        ],
+        "retrieved_parent_ids": [
+          "employment/understanding-your-pay#2",
+          "employment/holiday-entitlement-rights#15",
+          "employment/holiday-entitlement-rights#14",
+          "employment/holiday-entitlement-rights#11",
+          "employment/maximum-weekly-working-hours#8"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 9.06,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "When do I actually start paying back my student loan?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/repaying-your-student-loan#12"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/repaying-your-student-loan#12",
+          "tax_ni/repaying-your-student-loan#1",
+          "tax_ni/repaying-your-student-loan#29",
+          "education/student-finance-for-existing-students#5",
+          "tax_ni/repaying-your-student-loan#32"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 3.31,
+        "grade": null,
+        "escalated": null,
+        "selected": "rerank"
+      },
+      {
+        "question": "Will I get charged extra if I pay my student loan off early?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/repaying-your-student-loan#18"
+        ],
+        "retrieved_parent_ids": [
+          "tax_ni/repaying-your-student-loan#29",
+          "tax_ni/repaying-your-student-loan#35",
+          "tax_ni/repaying-your-student-loan#18",
+          "education/advanced-learner-loan#2",
+          "tax_ni/repaying-your-student-loan#24"
+        ],
+        "hit": true,
+        "rank": 3,
+        "is_refusal_case": false,
+        "seconds": 3.08,
+        "grade": null,
+        "escalated": null,
+        "selected": "rerank"
+      },
+      {
+        "question": "I'm going home for 6 months - do I need to tell anyone about my student loan?",
+        "category": [
+          "tax_ni"
+        ],
+        "expected_parent_ids": [
+          "tax_ni/repaying-your-student-loan#3"
+        ],
+        "retrieved_parent_ids": [
+          "education/student-finance-if-you-suspend-or-leave#3",
+          "education/student-finance-if-you-suspend-or-leave#11",
+          "education/student-finance-if-you-suspend-or-leave#7",
+          "education/student-finance-if-you-suspend-or-leave#6",
+          "education/get-undergraduate-student-loan#9"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 12.44,
+        "grade": null,
+        "escalated": null,
+        "selected": "route"
+      },
+      {
+        "question": "If I rent out my spare room, do I have to protect my lodger's deposit?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/rent-room-in-your-home#16"
+        ],
+        "retrieved_parent_ids": [
+          "housing/renting-a-room-in-someones-home-lodgers#7",
+          "housing/rent-room-in-your-home#8",
+          "housing/rent-room-in-your-home#16",
+          "housing/deposit-protection-schemes-and-landlords#4",
+          "housing/rent-room-in-your-home#19"
+        ],
+        "hit": true,
+        "rank": 3,
+        "is_refusal_case": false,
+        "seconds": 6.43,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "I've got a lodger living with me - who pays the council tax?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/rent-room-in-your-home#12"
+        ],
+        "retrieved_parent_ids": [
+          "housing/council-tax#3",
+          "tax_ni/tax-sell-home#11",
+          "housing/council-tax#11",
+          "housing/rent-room-in-your-home#12",
+          "housing/council-tax#12"
+        ],
+        "hit": true,
+        "rank": 4,
+        "is_refusal_case": false,
+        "seconds": 6.11,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "My landlord wants me to move out - what do they actually have to do first?",
+        "category": [
+          "housing"
+        ],
+        "expected_parent_ids": [
+          "housing/private-renting-evictions#1"
+        ],
+        "retrieved_parent_ids": [
+          "housing/assured-periodic-tenancies-tenants#27",
+          "housing/evicting-tenants#5",
+          "housing/evicting-tenants#10",
+          "housing/renting-a-room-in-someones-home-lodgers#11",
+          "housing/private-renting#26"
+        ],
+        "hit": false,
+        "rank": null,
+        "is_refusal_case": false,
+        "seconds": 13.04,
+        "grade": null,
+        "escalated": null,
+        "selected": "route"
+      },
+      {
+        "question": "Do I need a TB test before I come to the UK to study?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/tb-test-visa#1"
+        ],
+        "retrieved_parent_ids": [
+          "visa/tb-test-visa#1",
+          "visa/study-uk-student-visa#2",
+          "visa/study-uk-child-student-visa#2",
+          "visa/tb-test-visa#3",
+          "visa/tb-test-visa#6"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 8.79,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "Who is exempt from the TB test?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/tb-test-visa#3"
+        ],
+        "retrieved_parent_ids": [
+          "visa/tb-test-visa#3",
+          "visa/tb-test-visa#5",
+          "visa/tb-test-visa#4",
+          "visa/tb-test-visa#12",
+          "visa/tb-test-visa#9"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 6.1,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "What happens at UK border control when I arrive?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [
+          "visa/uk-border-control#10",
+          "visa/uk-border-control#14"
+        ],
+        "retrieved_parent_ids": [
+          "visa/uk-border-control#11",
+          "visa/uk-border-control#10",
+          "visa/transit-visa#2",
+          "visa/uk-border-control#14",
+          "visa/uk-border-control#21"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 7.01,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "Can I get help paying for childcare while I'm studying?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [
+          "education/childcare-grant#1",
+          "education/childcare-grant#6"
+        ],
+        "retrieved_parent_ids": [
+          "education/grant-bursary-adult-learners#0",
+          "education/childcare-grant#1",
+          "education/get-undergraduate-student-loan#3",
+          "education/further-education-courses#8",
+          "education/advanced-learner-loan#4"
+        ],
+        "hit": true,
+        "rank": 2,
+        "is_refusal_case": false,
+        "seconds": 6.43,
+        "grade": "relevant",
+        "escalated": false,
+        "selected": "crag"
+      },
+      {
+        "question": "How much childcare grant can I get for two kids?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [
+          "education/childcare-grant#3",
+          "education/childcare-grant#4"
+        ],
+        "retrieved_parent_ids": [
+          "education/childcare-grant#4",
+          "education/childcare-grant#3",
+          "education/childcare-grant#8",
+          "education/childcare-grant#6",
+          "education/childcare-grant#1"
+        ],
+        "hit": true,
+        "rank": 1,
+        "is_refusal_case": false,
+        "seconds": 1.94,
+        "grade": null,
+        "escalated": null,
+        "selected": "hybrid"
+      },
+      {
+        "question": "Can I bring my pet dog with me when I move to the UK to study?",
+        "category": [
+          "visa"
+        ],
+        "expected_parent_ids": [],
+        "retrieved_parent_ids": [
+          "visa/standard-visitor#4",
+          "visa/study-uk-student-visa#6",
+          "visa/study-uk-child-student-visa#6",
+          "visa/standard-visitor#1",
+          "visa/uk-border-control#6"
+        ],
+        "hit": true,
+        "rank": null,
+        "is_refusal_case": true,
+        "seconds": 12.71,
+        "grade": null,
+        "escalated": null,
+        "selected": "route"
+      },
+      {
+        "question": "Which UK university is best for computer science?",
+        "category": [
+          "education"
+        ],
+        "expected_parent_ids": [],
+        "retrieved_parent_ids": [
+          "education/mature-student-university-funding#2",
+          "education/student-finance#6",
+          "education/student-finance#7",
+          "education/student-finance#20",
+          "education/student-finance#11"
+        ],
+        "hit": true,
+        "rank": null,
+        "is_refusal_case": true,
+        "seconds": 11.69,
+        "grade": "irrelevant",
+        "escalated": true,
+        "selected": "crag"
+      }
+    ]
+  }
+}

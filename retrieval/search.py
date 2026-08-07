@@ -100,7 +100,7 @@ def expand_to_parents(child_hits: list[dict], top_k: int = 5) -> list[dict]:
     return results
 
 
-MODES = ("route", "rerank", "hybrid", "dense")
+MODES = ("agentic", "crag", "route", "rerank", "hybrid", "dense")
 
 # Cap on the merged child pool in "route" mode. Each branch contributes its own
 # pool, so without this the cross-encoder would grow linearly with the number
@@ -162,26 +162,111 @@ def _route_search(question: str, categories: list[str] | None, pool: int) -> tup
     return merged, branches
 
 
-def retrieve_traced(question: str, top_k: int = 5, categories: list[str] | None = None,
-                    mode: str = "rerank", pool: int = 25) -> tuple[list[dict], list[dict] | None]:
-    """retrieve(), but also returning the search trace ("route" mode only).
+def _rerank_search(question: str, categories: list[str] | None, pool: int) -> list[dict]:
+    """The plain hybrid + cross-encoder path, shared by "rerank" and "crag"."""
+    from retrieval.hybrid import hybrid_search
+    from retrieval.rerank import rerank
 
-    Split out so the API can show which sub-queries ran while retrieve() keeps
-    its simpler signature for ask.py and the eval harness.
+    child_hits = hybrid_search(question, limit=pool, categories=categories)
+    # Rerank the WHOLE pool, then let expand_to_parents cut to top_k.
+    # Truncating children here could yield fewer unique parents.
+    return rerank(question, child_hits)
+
+
+def _crag_search(question: str, categories: list[str] | None, pool: int,
+                 top_k: int) -> tuple[list[dict], dict]:
+    """Corrective retrieval: grade the cheap path, escalate only if it failed.
+
+    Returns (parents, trace). Unlike the other strategies this returns PARENTS
+    rather than child hits, because the grader has to judge the same sections
+    the generator would actually read - so expansion has to happen before the
+    decision, not after it.
+
+    The grade cannot come from a similarity score. Measured on the testset, the
+    cross-encoder's top-1 score does not separate hits from misses (correct
+    6.15-9.57, missed 6.22-9.34): the deposit question retrieves a section
+    saying the landlord does NOT have to protect a holding deposit, and scores
+    9.34 doing it. Only reading the text catches that - see agent/grade.py.
+
+    Escalation happens at most ONCE. If the rewritten search is still weak that
+    is reported honestly rather than retried; generate.py already refuses
+    gracefully when the sections do not support an answer.
+    """
+    from agent.grade import grade_retrieval
+
+    parents = expand_to_parents(_rerank_search(question, categories, pool), top_k=top_k)
+    verdict = grade_retrieval(question, parents)
+    trace = {"grade": verdict["grade"], "grade_reason": verdict["reason"], "escalated": False}
+
+    if verdict["grade"] == "relevant":
+        return parents, trace
+
+    # Not good enough - pay for the rewrite now, on the query that needs it.
+    child_hits, branches = _route_search(question, categories, pool)
+    trace["escalated"] = True
+    trace["branches"] = branches
+    return expand_to_parents(child_hits, top_k=top_k), trace
+
+
+def _agentic_search(question: str, categories: list[str] | None, pool: int,
+                    top_k: int) -> tuple[list[dict], dict]:
+    """Let an LLM pick which pipeline to run, then run that one.
+
+    Motivated by measurement, not novelty: across the 39-question testset the
+    best single pipeline (crag) scores MRR 0.6743, but an oracle picking the
+    best pipeline PER QUERY scores 0.8221. crag is beaten on 11 of 37
+    questions, and the winners include modes that are weak on average - route
+    scores worst overall yet is the only pipeline that finds two of the
+    questions at all. See agent/select.py.
+
+    Whether that headroom is actually reachable from the question text is an
+    open question, which is why "agentic" is a scoreable eval mode: it gets
+    compared against crag's 0.6743 rather than assumed to help.
+
+    Recursion is prevented in agent/select.py, whose SELECTABLE list excludes
+    "agentic" - so the dispatch below can never route back into this function.
+    """
+    from agent.select import select_pipeline
+
+    choice = select_pipeline(question)
+    parents, inner = retrieve_traced(question, top_k=top_k, categories=categories,
+                                     mode=choice["mode"], pool=pool)
+
+    trace = {"selected": choice["mode"], "select_reason": choice["reason"]}
+    if inner:
+        # Keep whatever the chosen pipeline reported (crag's grade, route's
+        # branches) so the UI can show the full story, not just the choice.
+        trace.update(inner)
+    return parents, trace
+
+
+def retrieve_traced(question: str, top_k: int = 5, categories: list[str] | None = None,
+                    mode: str = "rerank", pool: int = 25) -> tuple[list[dict], dict | None]:
+    """retrieve(), but also returning the search trace ("route"/"crag" only).
+
+    Split out so the API can show what happened - which sub-queries ran, and
+    for "crag" how the retrieval was graded - while retrieve() keeps its
+    simpler signature for ask.py and the eval harness.
     """
     trace = None
+    if mode == "agentic":
+        return _agentic_search(question, categories, pool, top_k)
+
+    if mode == "crag":
+        # Returns parents directly: the grade decision needs them, so this
+        # branch cannot defer to the shared expand_to_parents call below.
+        return _crag_search(question, categories, pool, top_k)
+
     if mode == "dense":
         child_hits = dense_search(question, limit=pool, categories=categories)
-    elif mode in ("hybrid", "rerank"):
+    elif mode == "hybrid":
         from retrieval.hybrid import hybrid_search
         child_hits = hybrid_search(question, limit=pool, categories=categories)
-        if mode == "rerank":
-            # Rerank the WHOLE pool, then let expand_to_parents cut to top_k.
-            # Truncating children here could yield fewer unique parents.
-            from retrieval.rerank import rerank
-            child_hits = rerank(question, child_hits)
+    elif mode == "rerank":
+        child_hits = _rerank_search(question, categories, pool)
     elif mode == "route":
-        child_hits, trace = _route_search(question, categories, pool)
+        child_hits, branches = _route_search(question, categories, pool)
+        trace = {"branches": branches}
     else:
         raise ValueError(f"unknown mode {mode!r} - use one of {MODES}")
 
@@ -192,14 +277,16 @@ def retrieve(question: str, top_k: int = 5, categories: list[str] | None = None,
              mode: str = "rerank", pool: int = 25) -> list[dict]:
     """Return up to top_k unique parent sections most relevant to the question.
 
-    mode:       "route" (LLM query rewrite/split, then multi-branch search),
-                "rerank" (hybrid + cross-encoder re-scoring), "hybrid" (BM25 +
-                dense, RRF-fused), or "dense" (vector only, the Week-1
-                baseline). The earlier modes are kept so eval can A/B each
-                stage against the next.
+    mode:       "agentic" (an LLM picks one of the pipelines below per query),
+                "crag" (rerank, then grade it and escalate to route only if
+                the grade is poor), "route" (LLM query rewrite/split, then
+                multi-branch search), "rerank" (hybrid + cross-encoder
+                re-scoring), "hybrid" (BM25 + dense, RRF-fused), or "dense"
+                (vector only, the Week-1 baseline). The earlier modes are kept
+                so eval can A/B each stage against the next.
 
-                "rerank" stays the default: "route" costs an LLM round-trip
-                before search even starts, so it is opt-in rather than the
+                "rerank" stays the default: "route", "crag" and "agentic" all
+                cost an LLM round-trip, so they are opt-in rather than the
                 price of every query.
     categories: optional list to restrict the search. In "route" mode this
                 filters the original-question branch; the rewritten branches

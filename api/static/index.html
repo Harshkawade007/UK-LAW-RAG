@@ -74,6 +74,33 @@
   .trace .orig{color:var(--ink-faint)}
   .tag{font-family:var(--mono);font-size:.72em;background:var(--accent-wash);
        color:var(--accent);border-radius:4px;padding:0 .35em;margin-left:.3em}
+  .grade{font-family:var(--mono);font-size:.74em;border-radius:4px;
+         padding:.05em .4em;margin-left:.35em;font-weight:600}
+  .grade.good{background:var(--accent-wash);color:var(--accent)}
+  .grade.bad{background:var(--warn-wash);color:var(--warn)}
+  .trace .reason{margin-top:.3rem;color:var(--ink-faint);font-size:.95em}
+
+  .cmp-panel{margin-top:2rem}
+  .cmp-block{border:1px solid var(--border);border-radius:8px;margin-top:.7rem;
+             background:var(--surface-2);overflow:hidden}
+  .cmp-head{display:flex;align-items:baseline;gap:.6rem;padding:.6rem .75rem;
+            border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .cmp-mode{font-family:var(--mono);font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+            font-size:.82rem;color:var(--accent)}
+  .cmp-score{font-family:var(--mono);font-size:.78rem;color:var(--ink)}
+  .cmp-lat{font-family:var(--mono);font-size:.72rem;color:var(--ink-faint);margin-left:auto}
+  .cmp-sum{flex-basis:100%;font-size:.85rem;color:var(--ink-soft)}
+  .cmp-sec{display:grid;grid-template-columns:auto 1fr;gap:.5rem .6rem;
+           padding:.5rem .75rem;border-top:1px solid var(--border);font-size:.85rem}
+  .cmp-sec:first-of-type{border-top:0}
+  .r{font-family:var(--mono);font-size:.7rem;font-weight:700;border-radius:4px;
+     padding:.08em .4em;height:fit-content;white-space:nowrap}
+  .r3{background:var(--accent-wash);color:var(--accent)}
+  .r2{background:var(--accent-wash);color:var(--accent);opacity:.72}
+  .r1{background:var(--surface);color:var(--ink-faint);border:1px solid var(--border)}
+  .r0{background:var(--warn-wash);color:var(--warn)}
+  .cmp-sec .cmt{color:var(--ink-faint);font-size:.95em;display:block;margin-top:.15rem}
+  .winner{border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -89,6 +116,8 @@
         <label><input type="radio" name="mode" value="hybrid"><span>hybrid</span></label>
         <label><input type="radio" name="mode" value="rerank" checked><span>rerank</span></label>
         <label><input type="radio" name="mode" value="route"><span>route</span></label>
+        <label><input type="radio" name="mode" value="crag"><span>crag</span></label>
+        <label><input type="radio" name="mode" value="agentic"><span>agentic</span></label>
       </div>
       <label class="chk"><input type="checkbox" id="gen" checked> generate answer</label>
       <button id="go">Ask</button>
@@ -97,6 +126,20 @@
   </div>
 
   <div id="out"></div>
+
+  <!-- Explanation panel: separate from the search flow on purpose. Runs every
+       pipeline on the same question and shows an LLM review of what each found,
+       which is the only way the per-query differences between them are visible. -->
+  <div class="panel cmp-panel">
+    <h2 style="margin-bottom:.4rem">Compare all pipelines</h2>
+    <p class="hint" style="margin:0 0 .75rem">
+      Runs the question above through all five pipelines and has an LLM rate every
+      section each one retrieved. No single pipeline wins every query — this shows why.
+      Takes ~40s and uses API credits.
+    </p>
+    <button id="cmpGo" style="margin:0">Compare pipelines</button>
+    <div id="cmpOut"></div>
+  </div>
 </div>
 
 <script>
@@ -122,17 +165,34 @@ function render(d) {
   }
 
   html += `<div class="panel">`;
-  // In route mode, show what the rewrite actually searched. The first branch is
-  // always the untouched question, so label it — that's the safety net that
-  // stops a wrong route from losing sections.
-  if (d.trace && d.trace.length) {
-    html += `<div class="trace"><b>Searched ${d.trace.length} queries</b><ul>`;
-    d.trace.forEach((b, i) => {
-      const tags = (b.categories || []).map(c => `<span class="tag">${esc(c)}</span>`).join("");
-      const label = i === 0 ? ` <span class="orig">(original, unfiltered)</span>` : "";
-      html += `<li>${esc(b.query)}${tags}${label}</li>`;
-    });
-    html += `</ul></div>`;
+  const tr = d.trace;
+  if (tr) {
+    html += `<div class="trace">`;
+    // crag: show how retrieval was graded and whether that forced a retry.
+    // Without this, crag looks identical to rerank from the outside.
+    // agentic: which pipeline the selector chose, and why.
+    if (tr.selected) {
+      html += `<b>Agent chose</b> <span class="grade good">${esc(tr.selected)}</span>
+        <div class="reason">${esc(tr.select_reason || "")}</div>`;
+    }
+    if (tr.grade) {
+      const ok = tr.grade === "relevant";
+      html += `<b>Retrieval graded</b>
+        <span class="grade ${ok ? "good" : "bad"}">${esc(tr.grade)}</span>
+        ${tr.escalated ? `<span class="tag">re-searched</span>` : ""}
+        <div class="reason">${esc(tr.grade_reason || "")}</div>`;
+    }
+    // route (or crag after escalating): the queries actually searched.
+    if (tr.branches && tr.branches.length) {
+      html += `${tr.grade ? "" : "<b>Searched " + tr.branches.length + " queries</b>"}<ul>`;
+      tr.branches.forEach((b, i) => {
+        const tags = (b.categories || []).map(c => `<span class="tag">${esc(c)}</span>`).join("");
+        const label = i === 0 ? ` <span class="orig">(original, unfiltered)</span>` : "";
+        html += `<li>${esc(b.query)}${tags}${label}</li>`;
+      });
+      html += `</ul>`;
+    }
+    html += `</div>`;
   }
   html += `<h2>Retrieved sections (${d.sources.length})</h2>`;
   for (const s of d.sources) {
@@ -172,6 +232,59 @@ async function ask() {
   }
 }
 
+const cmpBtn = $("#cmpGo"), cmpOut = $("#cmpOut");
+
+function renderCompare(d) {
+  let html = `<p class="meta" style="margin:.9rem 0 .2rem">
+    ${d.pipelines.length} pipelines · ${(d.total_ms / 1000).toFixed(1)}s ·
+    ranked by DCG over section ratings</p>`;
+  d.pipelines.forEach((p, i) => {
+    html += `<div class="cmp-block${i === 0 ? " winner" : ""}">
+      <div class="cmp-head">
+        <span class="cmp-mode">${esc(p.mode)}</span>
+        <span class="cmp-score">score ${p.score.toFixed(2)}</span>
+        ${i === 0 ? '<span class="tag">best</span>' : ""}
+        <span class="cmp-lat">${p.latency_ms}ms</span>
+        <span class="cmp-sum">${esc(p.summary)}</span>
+      </div>`;
+    for (const s of p.sections) {
+      const r = s.rating;
+      const cls = r === null || r === undefined ? "r1" : "r" + r;
+      const label = r === null || r === undefined ? "—" : r + "/3";
+      html += `<div class="cmp-sec">
+        <span class="r ${cls}" title="${esc(s.rating_label || "")}">${label}</span>
+        <span>${esc(s.breadcrumb || "")}
+          ${s.comment ? `<span class="cmt">${esc(s.comment)}</span>` : ""}</span>
+      </div>`;
+    }
+    html += `</div>`;
+  });
+  cmpOut.innerHTML = html;
+}
+
+async function compare() {
+  const question = qEl.value.trim();
+  if (question.length < 3) { qEl.focus(); return; }
+  cmpBtn.disabled = true; cmpBtn.textContent = "Running all pipelines…";
+  cmpOut.innerHTML = `<p class="hint" style="margin:.9rem 0 0">
+    Running five pipelines and reviewing every section — this takes ~40s.</p>`;
+  try {
+    const res = await fetch("/compare", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question}),
+    });
+    if (!res.ok) throw new Error((await res.text()) || res.statusText);
+    renderCompare(await res.json());
+  } catch (e) {
+    cmpOut.innerHTML = `<div class="panel err" style="margin-top:.9rem">
+      <strong>Comparison failed.</strong><br>${esc(e.message)}</div>`;
+  } finally {
+    cmpBtn.disabled = false; cmpBtn.textContent = "Compare pipelines";
+  }
+}
+
+cmpBtn.addEventListener("click", compare);
 btn.addEventListener("click", ask);
 qEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !e.shiftKey)) { e.preventDefault(); ask(); }

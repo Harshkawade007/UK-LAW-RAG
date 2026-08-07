@@ -8,9 +8,15 @@ Two things it can check:
 
   1. RETRIEVAL HIT-RATE (always, free, deterministic)
      For each question, retrieve top-k parents and check whether at least one
-     expected_sources URL made it in. This isolates retrieval quality from
+     expected_parent_id made it in. This isolates retrieval quality from
      generation - exactly what you need before/after adding hybrid search or
      reranking in Week 2, without spending an LLM call per run.
+
+     Scored at PARENT_ID (section) granularity, not page URL. A page can have
+     dozens of sections that all share one source_url, so scoring on the URL
+     could not tell "found the right section" from "found any section of the
+     right page" - it also couldn't see rank changes WITHIN a page at all.
+     See eval/testset.py's docstring for the case that proved this mattered.
 
   2. GENERATED ANSWERS (optional, --with-answers, costs DeepInfra credits)
      Also runs the full retrieve -> generate path and saves each answer to
@@ -25,33 +31,51 @@ Usage (run from the project ROOT):
 """
 
 import json
+import time
 import argparse
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
 from eval.testset import TESTSET
-from retrieval.search import retrieve, close, MODES
+from retrieval.search import retrieve_traced, close, MODES
 
 RESULTS_DIR = Path(__file__).parent / "results"
 
 
 def check_retrieval(question: dict, top_k: int, mode: str = "hybrid") -> dict:
-    """Retrieve for one question and check whether an expected source was hit."""
-    expected = set(question["expected_sources"] or [])
-    parents = retrieve(question["question"], top_k=top_k, mode=mode)
-    got = [p["source_url"] for p in parents]
+    """Retrieve for one question and check whether an expected SECTION was hit.
 
-    hit = not expected or any(url in expected for url in got)
-    rank = next((i + 1 for i, url in enumerate(got) if url in expected), None) if expected else None
+    Scored on parent_id, not source_url - see the module docstring and
+    eval/testset.py for why page-level scoring was structurally blind to
+    most retrieval changes.
+    """
+    expected = set(question["expected_parent_ids"] or [])
+
+    t0 = time.perf_counter()
+    parents, trace = retrieve_traced(question["question"], top_k=top_k, mode=mode)
+    elapsed = time.perf_counter() - t0
+
+    got = [p["parent_id"] for p in parents]
+
+    hit = not expected or any(pid in expected for pid in got)
+    rank = next((i + 1 for i, pid in enumerate(got) if pid in expected), None) if expected else None
 
     return {
         "question": question["question"],
         "category": question["category"],
-        "expected_sources": sorted(expected),
-        "retrieved_sources": got,
+        "expected_parent_ids": sorted(expected),
+        "retrieved_parent_ids": got,
         "hit": hit,
         "rank": rank,          # 1-indexed position of the first correct hit, if any
-        "is_refusal_case": not expected,   # out-of-corpus questions have no expected source
+        "is_refusal_case": not expected,   # out-of-corpus questions have no expected section
+        "seconds": round(elapsed, 2),
+        # "crag": how the retrieval was graded and whether that triggered the
+        # expensive rewrite. "agentic": which pipeline the selector picked.
+        # Cost and behaviour are half the point of comparing modes.
+        "grade": (trace or {}).get("grade"),
+        "escalated": (trace or {}).get("escalated"),
+        "selected": (trace or {}).get("selected"),
         "parents": parents,     # kept for --with-answers; not printed in the summary
     }
 
@@ -81,6 +105,46 @@ def mrr(results: list[dict]) -> float:
     return sum(1.0 / r["rank"] for r in scored if r["rank"]) / len(scored)
 
 
+def cost_line(results: list[dict]) -> str:
+    """Latency and escalation summary - the other half of any mode comparison.
+
+    A mode that matches another's accuracy while escalating rarely is the whole
+    point of "crag", so this has to sit next to MRR rather than be inferred.
+    """
+    avg = sum(r["seconds"] for r in results) / len(results)
+    line = f"avg {avg:.2f}s/question"
+
+    esc = [r for r in results if r.get("escalated") is not None]
+    if esc:
+        n = sum(bool(r["escalated"]) for r in esc)
+        line += f"   |   escalated {n}/{len(esc)}"
+
+    picks = [r["selected"] for r in results if r.get("selected")]
+    if picks:
+        counts = Counter(picks).most_common()
+        line += "   |   picked " + ", ".join(f"{m}x{n}" for m, n in counts)
+    return line
+
+
+def oracle_mrr(runs: dict[str, list[dict]]) -> float:
+    """Best achievable MRR if a perfect selector picked the best mode per query.
+
+    The ceiling any pipeline-selection strategy is aiming at - and the number
+    that showed selection was worth building at all (0.8221 vs the best single
+    pipeline's 0.6743 across dense/hybrid/rerank/route/crag).
+    """
+    modes = list(runs)
+    n = len(runs[modes[0]])
+    scored = [i for i in range(n) if not runs[modes[0]][i]["is_refusal_case"]]
+    if not scored:
+        return 0.0
+    total = sum(
+        max((1.0 / runs[m][i]["rank"]) if runs[m][i]["rank"] else 0.0 for m in modes)
+        for i in scored
+    )
+    return total / len(scored)
+
+
 def print_summary(results: list[dict], mode: str = "") -> None:
     scored = [r for r in results if not r["is_refusal_case"]]
     hits = sum(r["hit"] for r in scored)
@@ -89,7 +153,8 @@ def print_summary(results: list[dict], mode: str = "") -> None:
 
     label = f" [{mode}]" if mode else ""
     print(f"\n{'='*72}\nRETRIEVAL{label}: {hits}/{len(scored)} hit-rate "
-          f"({100*hits/len(scored):.0f}%)   |   MRR@{len(results[0]['retrieved_sources']) or '?'} = {mrr(results):.4f}"
+          f"({100*hits/len(scored):.0f}%)   |   MRR@{len(results[0]['retrieved_parent_ids']) or '?'} = {mrr(results):.4f}"
+          f"\n{cost_line(results)}"
           f"\nrank distribution: {dist}"
           f"   [{len(results)-len(scored)} refusal-case question(s) excluded]\n{'='*72}\n")
 
@@ -98,8 +163,8 @@ def print_summary(results: list[dict], mode: str = "") -> None:
         rank = f"rank {r['rank']}" if r["rank"] else "not found"
         print(f"[{tag:12}] {r['question']}")
         if not r["is_refusal_case"]:
-            print(f"             expected: {r['expected_sources']}")
-            print(f"             {rank} in top-{len(r['retrieved_sources'])}: {r['retrieved_sources'][:3]}")
+            print(f"             expected: {r['expected_parent_ids']}")
+            print(f"             {rank} in top-{len(r['retrieved_parent_ids'])}: {r['retrieved_parent_ids'][:3]}")
         if "answer" in r:
             print(f"             answer: {r['answer'][:160].replace(chr(10), ' ')}...")
         print()
@@ -172,6 +237,18 @@ def print_comparison(runs: dict[str, list[dict]]) -> None:
     delta = mrr(runs[latest]) - mrr(runs[baseline])
     print(f"      {baseline} -> {latest}: {delta:+.4f}   "
           f"({improved} improved, {worsened} worsened)")
+    print(f"{'-'*72}")
+    for m in modes:
+        print(f"{m:>8}  {cost_line(runs[m])}")
+
+    # Only meaningful with several genuine pipelines to choose between.
+    if len(modes) > 1:
+        oracle = oracle_mrr(runs)
+        best = max(mrr(runs[m]) for m in modes)
+        gap = oracle - best
+        print(f"{'-'*72}")
+        print(f"  ORACLE  {oracle:.4f}  (perfect per-query pipeline choice)")
+        print(f"          best single mode {best:.4f}, unrealised headroom {gap:+.4f}")
     print(f"{'-'*72}\n")
 
 
