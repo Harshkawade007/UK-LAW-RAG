@@ -78,6 +78,9 @@
          padding:.05em .4em;margin-left:.35em;font-weight:600}
   .grade.good{background:var(--accent-wash);color:var(--accent)}
   .grade.bad{background:var(--warn-wash);color:var(--warn)}
+  /* A refusal has to look different from an answer, or it reads as one. */
+  .declined{background:var(--warn-wash);color:var(--warn);font-weight:600;
+            border-radius:6px;padding:.5rem .7rem;margin-bottom:.8rem;font-size:.9em}
   .trace .reason{margin-top:.3rem;color:var(--ink-faint);font-size:.95em}
 
   .cmp-panel{margin-top:2rem}
@@ -114,9 +117,9 @@
       <div class="modes" role="radiogroup" aria-label="Retrieval mode">
         <label><input type="radio" name="mode" value="dense"><span>dense</span></label>
         <label><input type="radio" name="mode" value="hybrid"><span>hybrid</span></label>
-        <label><input type="radio" name="mode" value="rerank" checked><span>rerank</span></label>
+        <label><input type="radio" name="mode" value="rerank"><span>rerank</span></label>
         <label><input type="radio" name="mode" value="route"><span>route</span></label>
-        <label><input type="radio" name="mode" value="crag"><span>crag</span></label>
+        <label><input type="radio" name="mode" value="crag" checked><span>crag</span></label>
         <label><input type="radio" name="mode" value="agentic"><span>agentic</span></label>
       </div>
       <label class="chk"><input type="checkbox" id="gen" checked> generate answer</label>
@@ -157,8 +160,12 @@ function render(d) {
 
   let html = "";
   if (d.answer) {
+    const declined = d.refused
+      ? `<div class="declined">Declined to answer — the grader judged the retrieved
+         sections irrelevant, so no answer was generated.</div>`
+      : "";
     html += `<div class="panel"><div class="meta">${esc(timing)}</div>
-      <div class="answer">${cites(d.answer)}</div></div>`;
+      ${declined}<div class="answer">${cites(d.answer)}</div></div>`;
   } else {
     html += `<div class="panel"><div class="meta">${esc(timing)}</div>
       <p class="hint" style="margin:0">Retrieval only — tick “generate answer” for a written response.</p></div>`;
@@ -181,6 +188,14 @@ function render(d) {
         <span class="grade ${ok ? "good" : "bad"}">${esc(tr.grade)}</span>
         ${tr.escalated ? `<span class="tag">re-searched</span>` : ""}
         <div class="reason">${esc(tr.grade_reason || "")}</div>`;
+      // Escalating changed the sections, so the verdict on them changed too -
+      // and it is the SECOND verdict that decides whether an answer is written.
+      if (tr.escalated && tr.final_grade) {
+        const ok2 = tr.final_grade === "relevant";
+        html += `<b>Re-graded after re-search</b>
+          <span class="grade ${ok2 ? "good" : "bad"}">${esc(tr.final_grade)}</span>
+          <div class="reason">${esc(tr.final_grade_reason || "")}</div>`;
+      }
     }
     // route (or crag after escalating): the queries actually searched.
     if (tr.branches && tr.branches.length) {
@@ -194,7 +209,7 @@ function render(d) {
     }
     html += `</div>`;
   }
-  html += `<h2>Retrieved sections (${d.sources.length})</h2>`;
+  html += `<h2>${d.refused ? "Closest matches" : "Retrieved sections"} (${d.sources.length})</h2>`;
   for (const s of d.sources) {
     const score = s.score == null ? "" : `<span class="score">${s.score.toFixed(3)}</span>`;
     html += `<details>

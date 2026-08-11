@@ -50,6 +50,21 @@ def _client() -> OpenAI:
     return OpenAI(api_key=token, base_url=BASE_URL)
 
 
+NOTHING_FOUND = (
+    "I couldn't find anything relevant in the corpus to answer that. "
+    "Try rephrasing, or check the official gov.uk / nhs.uk pages."
+)
+
+REFUSAL = (
+    "I don't have anything in my sources that answers this.\n\n"
+    "The sections below are the closest matches I found, but none of them "
+    "actually address your question - so rather than piece together an answer "
+    "that looks confident, I'd rather tell you. Try rephrasing, or check "
+    "gov.uk / nhs.uk directly.\n\n"
+    "This is general information, not legal advice."
+)
+
+
 def _format_sources(parents: list[dict]) -> str:
     return "\n\n".join(
         f"[{i}] {p['breadcrumb']} ({p['source_url']})\n{p['text']}"
@@ -57,15 +72,44 @@ def _format_sources(parents: list[dict]) -> str:
     )
 
 
+def _cited(parents: list[dict]) -> list[dict]:
+    return [
+        {"n": i, "breadcrumb": p["breadcrumb"], "url": p["source_url"]}
+        for i, p in enumerate(parents, 1)
+    ]
+
+
 def generate_answer(question: str, parents: list[dict], model: str = MODEL,
-                    temperature: float = 0.2) -> dict:
-    """Return {answer, sources} grounded in the retrieved parent sections."""
+                    temperature: float = 0.2, grade: str | None = None) -> dict:
+    """Return {answer, sources, refused} grounded in the retrieved sections.
+
+    `grade` is agent/grade.py's verdict on THESE sections - retrieval/search.py
+    reports it as `final_grade` in the crag/agentic trace. When it says
+    "irrelevant" this declines instead of answering.
+
+    Why the grade has to be plumbed this far:
+        Retrieval always returns its top-k, however bad. Asked "can I bring my
+        pet dog to the UK?" the corpus has nothing, so five unrelated housing
+        and visa sections come back anyway - and a model told to answer from
+        sources will dutifully assemble something confident-looking out of
+        them, with real gov.uk links underneath. The grader already detects
+        this (zero false positives across two full eval runs); until it was
+        wired to here, its verdict was recorded in the trace and ignored.
+
+        Declining is the whole point of a legal assistant. A wrong answer a
+        student acts on is worse than no answer.
+
+    Only "irrelevant" refuses. "partial" means some section genuinely helps,
+    and the prompt below already tells the model to say what is missing.
+
+    Refusing costs nothing - no LLM call is made. The sections are still
+    returned, honestly labelled as the closest matches rather than as support.
+    """
     if not parents:
-        return {
-            "answer": "I couldn't find anything relevant in the corpus to answer that. "
-                      "Try rephrasing, or check the official gov.uk / nhs.uk pages.",
-            "sources": [],
-        }
+        return {"answer": NOTHING_FOUND, "sources": [], "refused": True}
+
+    if grade == "irrelevant":
+        return {"answer": REFUSAL, "sources": _cited(parents), "refused": True}
 
     user = f"Question: {question}\n\nSources:\n{_format_sources(parents)}"
     resp = _client().chat.completions.create(
@@ -77,8 +121,4 @@ def generate_answer(question: str, parents: list[dict], model: str = MODEL,
         temperature=temperature,
     )
     answer = resp.choices[0].message.content.strip()
-    sources = [
-        {"n": i, "breadcrumb": p["breadcrumb"], "url": p["source_url"]}
-        for i, p in enumerate(parents, 1)
-    ]
-    return {"answer": answer, "sources": sources}
+    return {"answer": answer, "sources": _cited(parents), "refused": False}

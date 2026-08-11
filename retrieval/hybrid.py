@@ -1,8 +1,21 @@
 """
 retrieval/hybrid.py
 
-Hybrid retrieval: keyword search (BM25) alongside semantic search (dense
-vectors), fused with Reciprocal Rank Fusion.
+PIPELINE 2 of 5 - hybrid retrieval: keyword search (BM25) alongside semantic
+search (dense vectors), fused with Reciprocal Rank Fusion.
+
+    dense.py + BM25 -> RRF -> parents
+
+⚠️ Measured on the 39-question testset, hybrid REGRESSES against plain dense:
+   MRR 0.5784 vs 0.6599. Adding a signal is not automatically safe. BM25 is
+   confidently wrong on a few questions - it ranks a same-page-but-wrong
+   section above the intended one - and RRF lets that confident wrong rank
+   outvote a correct dense rank. The earlier page-level metric hid this
+   entirely (it showed 0.87 -> 0.90, an improvement). Verify at the
+   granularity that actually matters.
+
+   It is kept because rerank.py needs a strong candidate POOL, not a good
+   final ordering, and because eval needs to A/B each stage.
 
 Why both:
     Dense embeddings match MEANING but blur exact terms. On this corpus
@@ -40,7 +53,8 @@ from functools import lru_cache
 
 from rank_bm25 import BM25Okapi
 
-from retrieval.search import dense_search
+from retrieval.dense import dense_search
+from retrieval.store import expand_to_parents
 
 CHILDREN_PATH = Path(__file__).parent.parent / "chunks" / "children.jsonl"
 
@@ -125,3 +139,10 @@ def hybrid_search(question: str, limit: int = 25, categories: list[str] | None =
         if hit:
             results.append({**hit, "score": rrf_score})
     return results
+
+
+def run(question: str, top_k: int = 5, categories: list[str] | None = None,
+        pool: int = 25) -> tuple[list[dict], None]:
+    """The hybrid pipeline. See search.py for the shared contract."""
+    child_hits = hybrid_search(question, limit=pool, categories=categories)
+    return expand_to_parents(child_hits, top_k=top_k), None

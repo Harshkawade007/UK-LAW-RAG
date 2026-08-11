@@ -4,9 +4,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-An agentic RAG system that answers UK legal/admin questions for international students, with citations and self-correction. The full design lives in `uk-student-legal-rag-roadmap.md` — read it before adding features; it defines the intended module layout (`retrieval/`, `agent/`, `api/`, `eval/`) and the reasoning behind each technique choice.
+An agentic RAG system that answers UK legal/admin questions for international students, with citations, self-correction, and the ability to **decline** when the corpus doesn't cover the question. There is no roadmap file — the design decisions live in this file and in the module docstrings, which record what was *measured* rather than what was intended.
 
-**Current state:** the full offline pipeline plus a working retrieve→generate path exist. `main.py` is a stub and the root `fetch.py` is empty (the real fetcher is `ingestion/fetch.py`). Built so far: ingestion (`fetch` → `clean` → `chunk` → `index`), `retrieval/` (dense + hybrid BM25/RRF), `agent/generate.py`, the `ask.py` CLI, and `eval/`. Not built yet: cross-encoder reranking, query routing/transformation, the agent loop, and `api/`. Follow the roadmap's structure and decisions when adding them.
+**Current state — all six retrieval pipelines, the API/UI, and the eval harness are built.** `main.py` is a stub and the root `fetch.py` is empty (the real fetcher is `ingestion/fetch.py`); ignore both.
+
+```
+retrieval/
+  store.py      shared: embedding model, Qdrant client, parents.jsonl,
+                expand_to_parents(), close()  — imports nothing from retrieval/
+  dense.py      pipeline 1  vector search only                    MRR 0.6599
+  hybrid.py     pipeline 2  + BM25, RRF-fused                     MRR 0.5784
+  rerank.py     pipeline 3  + cross-encoder                       MRR 0.6608
+  route.py      pipeline 4  LLM rewrite -> N branches             MRR 0.4486
+  crag.py       pipeline 5  grade, escalate once, re-grade        MRR 0.6743
+  agentic.py                an LLM picks one of the five          MRR 0.6473
+  transform.py  the LLM call route.py uses to rewrite queries
+  search.py     the DISPATCHER — PIPELINES dict, retrieve(), retrieve_traced()
+agent/
+  generate.py   cited answer, or a refusal when grade == "irrelevant"
+  grade.py      grade_retrieval()  — the "C" in CRAG
+  select.py     select_pipeline()  — agentic's chooser (negative result)
+  review.py     review_pipelines() — the /compare panel, 70B judge
+```
+
+**Every pipeline module implements one contract:**
+
+```python
+run(question, top_k=5, categories=None, pool=25) -> (parents, trace | None)
+```
+
+`trace` is what the pipeline *decided*, or `None` if it decided nothing. **To add a pipeline: write `retrieval/<name>.py` with a `run()` of that shape and add one line to `PIPELINES` in `search.py`.** Eval, the API and the UI pick it up from `MODES` automatically.
+
+Import direction is strictly one-way — `store.py` ← `dense` ← `hybrid` ← `rerank` ← {`route`, `crag`} ← `search.py`. The single exception is `agentic.py`, which needs the dispatcher itself and therefore imports `search.py` **lazily inside `run()`**. Keep it that way or the package stops importing.
 
 ## Environment & commands
 
@@ -36,7 +65,8 @@ The query-side scripts import packages (`from retrieval.search import ...`), so 
 ```bash
 python ingestion/clean.py    # NOTE: clean/chunk/index also run from ingestion/ (see above)
 
-python ask.py "Do students pay council tax?"    # end-to-end: retrieve + cited answer
+python ask.py "Do students pay council tax?"              # end-to-end: retrieve + cited answer (crag)
+python ask.py --mode rerank "Do students pay council tax?"   # no grading, so it never declines
 
 uvicorn api.main:app                     # web UI at http://127.0.0.1:8000
 
@@ -51,7 +81,7 @@ There are no tests, linter config, or build step yet — `eval/` is the closest 
 
 ## API & web UI
 
-`api/main.py` wraps the pipeline in FastAPI and serves a single-page UI from `api/static/index.html` (plain HTML/JS, no build step). `POST /chat` takes `{question, mode, top_k, generate}` and returns the answer plus every retrieved section with its score, so you can inspect retrieval directly. The `trace` field carries whatever decision the mode made — sub-queries for `route`, the grade for `crag`, the chosen pipeline for `agentic` — and is `null` for the modes that make no decision. The UI renders it above the sections, which is the only way any of that is visible from the outside.
+`api/main.py` wraps the pipeline in FastAPI and serves a single-page UI from `api/static/index.html` (plain HTML/JS, no build step). `POST /chat` takes `{question, mode, top_k, generate}` and returns the answer plus every retrieved section with its score, so you can inspect retrieval directly. It also returns `refused` — true when the grader judged the sections irrelevant and the system declined to answer (see the refusal section below); the UI then renders an amber banner and relabels the sections "Closest matches", since they are near misses rather than evidence. The `trace` field carries whatever decision the mode made — sub-queries for `route`, the grade for `crag`, the chosen pipeline for `agentic` — and is `null` for the modes that make no decision. The UI renders it above the sections, which is the only way any of that is visible from the outside.
 
 `POST /compare` (`agent/review.py`) runs the question through **all five** pipelines and returns per-pipeline blocks: each retrieved section with a 0–3 rating and a one-line verdict, plus a DCG score and summary, best-scoring first. This is an explanation/demo feature, not the search path — ~40s and it uses credits. Two design points worth keeping:
 
@@ -69,14 +99,14 @@ Two constraints when running it:
 
 Retrieval is **parent-document (small-to-big)**: the ~250-token *children* are what get embedded and searched, but each child carries a `parent_id` and `expand_to_parents()` returns the full parent section, so the LLM sees a fact together with its caveats. Never embed parents — that was measured to blur retrieval.
 
-`retrieve(question, top_k=5, mode="rerank")` dispatches to one of four strategies. Each is the previous one plus a stage, and all share `expand_to_parents()`:
+`retrieve(question, top_k=5, mode="crag")` dispatches to one of six strategies. Each is the previous one plus a stage, and all share `expand_to_parents()`:
 
-- **`dense_search`** (`search.py`) — bge-small query embedding vs the Qdrant `law_children` collection. Queries **must** be prefixed with `QUERY_PREFIX`; bge-v1.5 is asymmetric and passages were indexed without it.
+- **`dense_search`** (`dense.py`) — bge-small query embedding vs the Qdrant `law_children` collection. Queries **must** be prefixed with `QUERY_PREFIX`; bge-v1.5 is asymmetric and passages were indexed without it.
 - **`hybrid_search`** (`hybrid.py`) — dense + BM25 over the same children, fused with RRF (`k=60`). BM25's tokenizer must be applied identically to documents and queries. The child text deliberately keeps its `Page > Section` breadcrumb, since that page title is what keyword matching uses to separate similar routes.
 - **`rerank`** (`rerank.py`) — a cross-encoder re-scores the whole fused pool by reading `(question, chunk)` *together*, which dense/BM25 structurally cannot do. Rerank the **entire** pool and let `expand_to_parents()` do the cutting; truncating children first can yield fewer than `top_k` unique parents.
-- **`route`** (`transform.py` + `_route_search` in `search.py`) — one LLM call rewrites the question into gov.uk vocabulary, optionally splits it, and tags categories; each branch is searched and reranked, then RRF-fused. **Opt-in, not the default** — it puts a ~2.4s LLM round-trip in front of every query, and is measurably *worse and unstable* vs `rerank` (see the record below).
-- **`crag`** (`agent/grade.py` + `_crag_search` in `search.py`) — runs the `rerank` path, then one cheap LLM call **grades whether the retrieved sections actually answer the question**, escalating to `route` only on a poor grade. At most one escalation, never a loop. Corrective RAG, adapted: the paper falls back to open web search, which would break this system's citation-faithfulness guarantee, so the fallback stays inside the trusted corpus.
-- **`agentic`** (`agent/select.py` + `_agentic_search` in `search.py`) — one LLM call reads the question and picks *which of the five pipelines above to run*. **Measured worse than simply always running `crag`** (see below) — kept as a documented negative result and for the UI, not recommended. Recursion is prevented by `SELECTABLE` in `select.py` excluding `"agentic"`; any failure falls back to `crag`.
+- **`route`** (`transform.py` + `route.py`) — one LLM call rewrites the question into gov.uk vocabulary, optionally splits it, and tags categories; each branch is searched and reranked, then RRF-fused. **Opt-in, not the default** — it puts a ~2.4s LLM round-trip in front of every query, and is measurably *worse and unstable* vs `rerank` (see the record below).
+- **`crag`** (`agent/grade.py` + `crag.py`) — runs the `rerank` path, then one cheap LLM call **grades whether the retrieved sections actually answer the question**, escalating to `route` only on a poor grade. At most one escalation, never a loop. Corrective RAG, adapted: the paper falls back to open web search, which would break this system's citation-faithfulness guarantee, so the fallback stays inside the trusted corpus.
+- **`agentic`** (`agent/select.py` + `agentic.py`) — one LLM call reads the question and picks *which of the five pipelines above to run*. **Measured worse than simply always running `crag`** (see below) — kept as a documented negative result and for the UI, not recommended. Recursion is prevented by `SELECTABLE` in `select.py` excluding `"agentic"`; any failure falls back to `crag`.
 
 The earlier modes are kept deliberately so eval can A/B each stage — don't remove them.
 
@@ -122,6 +152,29 @@ It escalated **3/39**, and all three were correct calls:
 
 `crag` costs 3.69s vs `rerank`'s 1.36s. Note it escalates *to* `route`, which is the weakest mode — this works only because escalation is rare and the grader is precise. **If `route` degrades further, revisit what `crag` escalates to.**
 
+### Refusal: the grade is wired to generation (and why there are two grades)
+
+The grader's verdict now decides whether an answer is written at all. `generate_answer(..., grade=...)` returns `{"answer", "sources", "refused"}` and declines when the grade is `irrelevant` — **without making an LLM call**, so refusing is free and instant.
+
+Until this was wired, the verdict was computed, put in the trace, and ignored. Asked *"Can I bring my pet dog to the UK?"* the system retrieved `Student visa > Check what you can bring into the UK with you` and cheerfully wrote a cited answer from it. **The detector existed and nothing listened to it.** For a legal assistant, a confident wrong answer is the actual failure mode.
+
+⚠️ **`retrieval/crag.py` produces TWO grades and they are not interchangeable.**
+
+- `grade` / `grade_reason` — the verdict that **decided the escalation**. Eval reads this.
+- `final_grade` / `final_grade_reason` — the verdict on the sections **actually returned**. Generation reads this.
+
+They differ exactly when escalation *worked*. "Does my landlord have to protect my deposit?" grades `irrelevant`, escalates, and comes back **correct at rank 1** — re-graded `relevant`, so it answers. Refusing on the pre-escalation grade would throw away a good answer and break the single best example of CRAG working. That is why the escalated path is re-graded: one extra LLM call, paid on the ~8% of queries that escalate.
+
+Only `irrelevant` refuses. `partial` still answers — some section genuinely helps, and the system prompt already tells the model to say what is missing.
+
+⚠️ **The refusal is NOT deterministic, because the grader isn't.** Measured 2026-08-11 on *"Can I bring my pet dog to the UK when I come to study?"* with the retrieved sections held fixed (retrieval itself is deterministic), five consecutive `grade_retrieval()` calls returned `irrelevant` ×4 and `partial` ×1 — and a separate run that day returned `relevant`, reasoning that a section about *assistance dogs* answered it. Since only `irrelevant` refuses, **the same question sometimes gets answered.**
+
+This is the same DeepInfra `temperature=0` non-determinism already documented for `transform()`, now shown to affect `agent/grade.py` too. It does not invalidate the feature — the "zero false positives" record is about never escalating a question that was already correct, which still holds — but **refusal should be described as a strong signal, not a guarantee.** If it needs to be reliable, the options are: majority-vote over N grader calls (N× cost), or move the grader to the 70B, which `agent/review.py` already demonstrates is markedly better at exactly this kind of judgement. Neither has been measured yet.
+
+**Refusal is a `crag`/`agentic` capability, not a global one.** The other four modes produce no grade, pass `None`, and answer unconditionally exactly as before — which is deliberately visible: ask the pet-dog question in `rerank` and it still improvises. That contrast is the demo. Because of it, **`crag` is now the default everywhere a human reads the output** — `retrieve()`, `ask.py` and the web UI — since it is both the best-scoring mode and the only one that can decline.
+
+**This does not move any recorded number.** `eval/run_eval.py` always passes `mode` explicitly (its own `--mode` default stays `rerank`), so the per-stage baselines remain comparable. `api/main.py`'s startup warm-up also stays on `rerank`: it exists only to load the embedding and cross-encoder models, and adding an LLM call to it would cost credits on every server start.
+
 ### Pipeline selection: large headroom, not reachable from the query text
 
 **The opportunity is real and measured.** Across the 39-question testset no single pipeline is right for every query:
@@ -160,13 +213,13 @@ It graded the *"How many hours can I work on a Student visa"* question `relevant
 - All Council Tax content is under **`housing`**, not `tax_ni` (children mentioning "council tax": housing 45, banking 13, tax_ni 2, visa 2).
 - On the existing testset 1/18 questions already has its best section outside its labelled category (National Minimum Wage is labelled `employment`, but the winning section is in `tax_ni`).
 
-Since hit-rate is already saturated at 17/17, filtering **cannot raise it and can only lose sections**. `retrieval/transform.py`'s prompt documents the counter-intuitive placements for the LLM, and `_route_search` always keeps an unfiltered branch as the safety net. Verified: routing "how do I get a National Insurance number" sends the LLM to `tax_ni`, yet the `visa`-filed introduction page still surfaces via branch 0.
+Since hit-rate is already saturated at 17/17, filtering **cannot raise it and can only lose sections**. `retrieval/transform.py`'s prompt documents the counter-intuitive placements for the LLM, and `route.py`'s `branch_search()` always keeps an unfiltered branch as the safety net. Verified: routing "how do I get a National Insurance number" sends the LLM to `tax_ni`, yet the `visa`-filed introduction page still surfaces via branch 0.
 
 **Known corpus limitation — do not mistake it for a retrieval bug.** The `student-visa` page in the corpus never states the work-hours rules (it only says hours "depend on what you're studying"), while `child-study-visa` explicitly says "part-time during term for up to 10 hours per week". So work-related Student visa questions correctly rank `child-study-visa` first — every retrieval method does this, including the cross-encoder, because it is the only chunk that substantively answers. **This is an ingestion gap, fixable only by fetching the missing content.** The same gap explains the "20 hours" test question.
 
 Model sizes are constrained by this machine: it has repeatedly hit `OSError: paging file is too small` with very little free virtual memory. The reranker is deliberately `ms-marco-MiniLM-L-6-v2` (~90 MB); a larger reranker like `bge-reranker-v2-m3` (~2.3 GB) would likely fail to load here.
 
-Embedding/index config is duplicated between `ingestion/index.py` and `retrieval/search.py` (`MODEL_NAME`, `COLLECTION`, `QUERY_PREFIX`, 384 dims, cosine). If you change one, change both or the query will land in a different vector space than the index.
+Embedding/index config is duplicated between `ingestion/index.py` and `retrieval/store.py` (`MODEL_NAME`, `COLLECTION`, `QUERY_PREFIX`, 384 dims, cosine). If you change one, change both or the query will land in a different vector space than the index.
 
 ## Corpus & ingestion architecture
 

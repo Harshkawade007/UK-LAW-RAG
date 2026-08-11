@@ -72,12 +72,18 @@ def chat(req: ChatRequest) -> ChatResponse:
     ]
 
     answer = None
+    refused = False
     generation_ms = None
     if req.generate:
         from agent.generate import generate_answer
 
         t1 = time.perf_counter()
-        answer = generate_answer(req.question, parents)["answer"]
+        # Only crag/agentic produce a grade; the other modes pass None here and
+        # answer unconditionally, exactly as before. Declining is a crag
+        # capability, not a global one.
+        result = generate_answer(req.question, parents,
+                                 grade=(trace or {}).get("final_grade"))
+        answer, refused = result["answer"], result["refused"]
         generation_ms = int((time.perf_counter() - t1) * 1000)
 
     return ChatResponse(
@@ -86,6 +92,7 @@ def chat(req: ChatRequest) -> ChatResponse:
         answer=answer,
         sources=sources,
         timings=Timings(retrieval_ms=retrieval_ms, generation_ms=generation_ms),
+        refused=refused,
         trace=Trace(**trace) if trace else None,
     )
 

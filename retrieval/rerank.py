@@ -1,7 +1,14 @@
 """
 retrieval/rerank.py
 
-Cross-encoder reranking: the last and most accurate scoring stage.
+PIPELINE 3 of 5 - cross-encoder reranking: the last and most accurate scoring
+stage.
+
+    hybrid.py pool -> cross-encoder re-scores every candidate -> parents
+
+Measured: MRR@5 0.6608. It is the shared foundation of crag.py (which grades
+its output) and route.py (which runs it once per branch), so a change here
+moves three pipelines at once.
 
 Why this exists (what dense and BM25 structurally cannot do):
     Dense search embeds the question and the chunk SEPARATELY and compares two
@@ -32,6 +39,9 @@ Model note:
 from functools import lru_cache
 
 from sentence_transformers import CrossEncoder
+
+from retrieval.hybrid import hybrid_search
+from retrieval.store import expand_to_parents
 
 MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 # A few children reach ~515 tokens; with the question prepended the pair can
@@ -68,3 +78,22 @@ def rerank(question: str, child_hits: list[dict], top_n: int | None = None) -> l
     ]
     scored.sort(key=lambda h: -h["rerank_score"])
     return scored[:top_n] if top_n else scored
+
+
+def rerank_pool(question: str, categories: list[str] | None, pool: int) -> list[dict]:
+    """hybrid search, then rerank the WHOLE pool. Returns CHILD hits.
+
+    Exposed separately from run() because route.py needs the reranked children
+    of each branch in order to fuse them by rank - it cannot use parents.
+
+    Do not truncate here: slicing children before expand_to_parents can yield
+    fewer than top_k unique parents, since several children often share one.
+    """
+    child_hits = hybrid_search(question, limit=pool, categories=categories)
+    return rerank(question, child_hits)
+
+
+def run(question: str, top_k: int = 5, categories: list[str] | None = None,
+        pool: int = 25) -> tuple[list[dict], None]:
+    """The rerank pipeline. See search.py for the shared contract."""
+    return expand_to_parents(rerank_pool(question, categories, pool), top_k=top_k), None

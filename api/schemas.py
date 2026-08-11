@@ -58,6 +58,11 @@ class Trace(BaseModel):
     grade: str | None = None
     grade_reason: str | None = None
     escalated: bool | None = None
+    # The verdict on the sections actually returned. Differs from `grade`
+    # whenever escalation changed them - which is the case that decides
+    # whether the answer is written or declined.
+    final_grade: str | None = None
+    final_grade_reason: str | None = None
     branches: list[Branch] | None = None
 
 
@@ -98,5 +103,9 @@ class ChatResponse(BaseModel):
     answer: str | None = None
     sources: list[Source]
     timings: Timings
+    # True when the system declined to answer because the grader judged the
+    # retrieved sections irrelevant. The sources are still returned, but as
+    # "closest matches", not as support for a claim.
+    refused: bool = False
     # Only populated in "route"/"crag" modes; otherwise there is nothing to show.
     trace: Trace | None = None
