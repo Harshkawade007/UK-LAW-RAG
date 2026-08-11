@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 An agentic RAG system that answers UK legal/admin questions for international students, with citations, self-correction, and the ability to **decline** when the corpus doesn't cover the question. There is no roadmap file — the design decisions live in this file and in the module docstrings, which record what was *measured* rather than what was intended.
 
-**Current state — all six retrieval pipelines, the API/UI, and the eval harness are built.** `main.py` is a stub and the root `fetch.py` is empty (the real fetcher is `ingestion/fetch.py`); ignore both.
+**Current state — all six retrieval pipelines, the API/UI, and the eval harness are built.** `main.py` is a leftover `uv` scaffold stub that prints a greeting; ignore it. The fetchers are `ingestion/fetch.py` and `ingestion/fetch_nhs.py` — there is no root-level fetcher.
+
+Prose docs: `README.md` (front door — holds the canonical results table) and `ARCHITECTURE.md` (mechanism and diagrams). Keep measured numbers in those two and in module docstrings; don't add a third copy here.
 
 ```
 retrieval/

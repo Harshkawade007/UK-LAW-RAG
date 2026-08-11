@@ -13,3 +13,11 @@ qdrant_data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Eval Results
+eval/results
+
+#
+chunks/
+cleaned/
+laws/

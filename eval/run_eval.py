@@ -24,10 +24,16 @@ Two things it can check:
      eye (roadmap's Day 10 RAGAS scoring is the automated version of this;
      this is the manual version you can use right now).
 
-Usage (run from the project ROOT):
-    python -m eval.run_eval                    # retrieval hit-rate only, fast, free
-    python -m eval.run_eval --k 5              # try a different top-k
-    python -m eval.run_eval --with-answers      # + full generation, saved to eval/results/
+Usage (run from the project ROOT). Name pipelines positionally - no names runs
+the default, one name runs that pipeline, two or more compares them:
+
+    python -m eval.run_eval                    # rerank alone - fast, free
+    python -m eval.run_eval crag               # one pipeline
+    python -m eval.run_eval dense crag         # compare two, side by side
+    python -m eval.run_eval free               # dense hybrid rerank (no credits)
+    python -m eval.run_eval all                # every pipeline (costs credits)
+    python -m eval.run_eval --k 8 dense crag   # different top-k
+    python -m eval.run_eval --with-answers crag  # + generation, saved to results/
 """
 
 import json
@@ -42,8 +48,22 @@ from retrieval.search import retrieve_traced, close, MODES
 
 RESULTS_DIR = Path(__file__).parent / "results"
 
+# ONE answer to "which pipeline does eval use by default", referenced by every
+# default below. Deliberately NOT "crag" (the system-wide default): rerank is
+# deterministic and makes no LLM calls, so a bare run is free and reproduces
+# exactly, and holding it fixed keeps every recorded per-stage baseline
+# comparable to the numbers in README.md.
+DEFAULT_MODE = "rerank"
 
-def check_retrieval(question: dict, top_k: int, mode: str = "hybrid") -> dict:
+# Shorthands usable anywhere a mode name is. "free" is the set that costs no
+# API credits; "all" is everything, including the three that call an LLM.
+ALIASES = {
+    "free": ["dense", "hybrid", "rerank"],
+    "all": list(MODES),
+}
+
+
+def check_retrieval(question: dict, top_k: int, mode: str = DEFAULT_MODE) ->dict:
     """Retrieve for one question and check whether an expected SECTION was hit.
 
     Scored on parent_id, not source_url - see the module docstring and
@@ -80,7 +100,7 @@ def check_retrieval(question: dict, top_k: int, mode: str = "hybrid") -> dict:
     }
 
 
-def run(top_k: int, with_answers: bool, mode: str = "hybrid") -> list[dict]:
+def run(top_k: int, with_answers: bool, mode: str = DEFAULT_MODE) ->list[dict]:
     results = [check_retrieval(q, top_k, mode=mode) for q in TESTSET]
 
     if with_answers:
@@ -252,45 +272,86 @@ def print_comparison(runs: dict[str, list[dict]]) -> None:
     print(f"{'-'*72}\n")
 
 
+def resolve_modes(names: list[str]) -> list[str]:
+    """Turn the positional arguments into an ordered, de-duplicated mode list.
+
+    Expands the ALIASES ("free", "all") and drops repeats while keeping the
+    order the user typed, since that order drives the comparison table's
+    baseline -> latest columns.
+
+    Raises ValueError naming the bad entries, so main() can turn it into a
+    clean argparse error rather than a traceback.
+    """
+    if not names:
+        return [DEFAULT_MODE]
+
+    expanded: list[str] = []
+    for name in names:
+        expanded.extend(ALIASES.get(name.lower(), [name.lower()]))
+
+    unknown = [m for m in expanded if m not in MODES]
+    if unknown:
+        raise ValueError(
+            f"unknown pipeline(s) {unknown}. Choose from {list(MODES)} "
+            f"or a shorthand: {list(ALIASES)}"
+        )
+
+    return list(dict.fromkeys(expanded))
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate the RAG pipeline against eval/testset.py.")
-    parser.add_argument("--k", type=int, default=5, help="top-k parents to retrieve per question")
-    parser.add_argument("--mode", choices=list(MODES), default="rerank",
-                        help="retrieval mode to evaluate (default: rerank)")
-    parser.add_argument("--compare", nargs="*", metavar="MODE", default=None,
-                        help="run several modes and print a rank-change table "
-                             "(default: dense hybrid rerank). 'route' can be "
-                             "named explicitly but is left out of the default "
-                             "set because it makes an LLM call per question.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate the retrieval pipelines against eval/testset.py.",
+        epilog=(
+            "examples:\n"
+            "  python -m eval.run_eval                  rerank alone (default, free)\n"
+            "  python -m eval.run_eval crag             one pipeline\n"
+            "  python -m eval.run_eval dense crag       compare two side by side\n"
+            "  python -m eval.run_eval free             dense hybrid rerank, no credits\n"
+            "  python -m eval.run_eval all              every pipeline (costs credits)\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "modes", nargs="*", metavar="PIPELINE",
+        help=f"pipeline(s) to evaluate: {', '.join(MODES)} "
+             f"(or {', '.join(ALIASES)}). No name runs '{DEFAULT_MODE}'; "
+             f"one name runs it; two or more compare them.",
+    )
+    parser.add_argument("--k", type=int, default=5,
+                        help="top-k parents to retrieve per question (default: 5)")
     parser.add_argument("--with-answers", action="store_true",
-                        help="also run full generation and save answers to eval/results/ (uses API credits)")
+                        help="also run generation and save answers to eval/results/ "
+                             "(uses API credits; single-pipeline runs only)")
     args = parser.parse_args()
 
-    # --compare with no values means "all stages, oldest to newest".
-    compare_modes = None
-    if args.compare is not None:
-        compare_modes = args.compare or ["dense", "hybrid", "rerank"]
-        unknown = [m for m in compare_modes if m not in MODES]
-        if unknown:
-            parser.error(f"unknown mode(s) {unknown} - choose from {list(MODES)}")
+    try:
+        modes = resolve_modes(args.modes)
+    except ValueError as exc:
+        parser.error(str(exc))
+
+    # Two or more pipelines is a comparison; one is a plain run. Generation is
+    # deliberately not offered for comparisons - it would multiply the credit
+    # cost by the number of pipelines for output nobody reads side by side.
+    comparing = len(modes) > 1
+    if comparing and args.with_answers:
+        parser.error("--with-answers works on a single pipeline at a time")
 
     try:
-        if compare_modes:
-            runs = {m: run(args.k, with_answers=False, mode=m) for m in compare_modes}
-        else:
-            results = run(args.k, args.with_answers, mode=args.mode)
+        runs = {m: run(args.k, with_answers=args.with_answers and not comparing, mode=m)
+                for m in modes}
     finally:
         close()
 
-    if compare_modes:
-        for mode, res in runs.items():
-            print_summary(res, mode)
+    for mode, res in runs.items():
+        print_summary(res, mode)
+
+    if comparing:
         print_comparison(runs)
         print(f"Saved comparison to {save_comparison(runs)}")
         return
 
-    print_summary(results, args.mode)
-    saved = save_results(results, args.with_answers, args.mode)
+    saved = save_results(runs[modes[0]], args.with_answers, modes[0])
     if saved:
         print(f"Saved full run (with answers) to {saved}")
 

@@ -1,7 +1,7 @@
 [project]
 name = "law-rag-project"
 version = "0.1.0"
-description = "Add your description here"
+description = "Agentic RAG over UK gov.uk and NHS guidance for international students - cited answers, self-correction, and refusal when the corpus does not cover the question"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
