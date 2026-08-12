@@ -1,31 +1,24 @@
 """
-retrieval/store.py
+Shared building blocks used by every search pipeline.
 
-Everything the pipelines SHARE: the embedding model, the Qdrant client, the
-parent lookup, and the child -> parent expansion.
+Each search strategy lives in its own file (dense.py, hybrid.py, rerank.py,
+route.py, crag.py, agentic.py), and they all need the same three things:
 
-Why this file exists:
-    Each retrieval strategy lives in its own module (dense.py, hybrid.py,
-    rerank.py, route.py, crag.py, agentic.py) and search.py just dispatches
-    between them. If the shared pieces stayed in search.py, every strategy
-    would have to import search.py while search.py imported every strategy -
-    a circular import. Putting the shared half here breaks that cycle: nothing
-    in this file imports anything else from retrieval/.
+    the embedding model   turns a piece of text into a list of numbers
+    the Qdrant client     the database holding those numbers
+    the parent lookup     the full sections of text, read from disk
 
-    Import direction, top to bottom, no cycles:
+Keeping them here also avoids a circular import. search.py imports every
+pipeline, so no pipeline may import search.py back. Nothing in this file
+imports anything else from retrieval/, which makes it safe for all of them.
 
-        store.py  <-  dense.py  <-  hybrid.py  <-  rerank.py
-                                                      ^
-                                        route.py  ----+
-                                        crag.py   ----+
-                                        search.py <- everything
-                                        agentic.py -> search.py (lazy)
+    store.py <- dense.py <- hybrid.py <- rerank.py <- route.py / crag.py
+                                                   <- search.py
 
-⚠️ The three constants below MUST match ingestion/index.py exactly. They are
-   deliberately duplicated there rather than imported, because ingestion/ runs
-   as loose scripts from inside its own folder. If you change MODEL_NAME,
-   COLLECTION, QUERY_PREFIX or the vector size, change BOTH files and re-index
-   - otherwise the query lands in a different vector space than the index.
+Note: MODEL_NAME, COLLECTION and QUERY_PREFIX below must stay identical to the
+ones in ingestion/index.py. The index was built with those settings, so a
+search using different ones would be comparing numbers that mean different
+things. Change one file and you must change the other, then rebuild the index.
 """
 
 import json
@@ -39,26 +32,32 @@ ROOT = Path(__file__).parent.parent
 QDRANT_PATH = ROOT / "qdrant_data"
 PARENTS_PATH = ROOT / "chunks" / "parents.jsonl"
 
-MODEL_NAME = "BAAI/bge-small-en-v1.5"      # 384 dims, cosine
+MODEL_NAME = "BAAI/bge-small-en-v1.5"      # produces 384 numbers per text
 COLLECTION = "law_children"
-# bge-*-en-v1.5 is asymmetric: queries get this instruction, passages don't
-# (matches how index.py embedded the children). Dropping it silently degrades
-# every search in the system.
+
+# This model expects questions and documents to be handled differently:
+# questions get this sentence stuck on the front, documents do not. The
+# documents were indexed without it, so questions must be embedded with it.
+# Leaving it out makes every search quietly worse.
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
 
+# @lru_cache(maxsize=1) means "run this once, then reuse the result". Loading
+# the model or opening the database takes seconds, so it must not happen per
+# search.
 @lru_cache(maxsize=1)
 def model() -> SentenceTransformer:
-    """The embedding model, loaded once per process (~5s cold)."""
+    """The embedding model. Loaded once per process (takes ~5 seconds)."""
     return SentenceTransformer(MODEL_NAME)
 
 
 @lru_cache(maxsize=1)
 def client() -> QdrantClient:
-    """The embedded Qdrant client.
+    """The vector database, running as a local folder rather than a server.
 
-    Local mode holds a lock on qdrant_data/, which is why the API must never
-    run with --reload or --workers > 1: a second process cannot open it.
+    Only one process can open qdrant_data/ at a time. That is why the API must
+    not be started with --reload or --workers > 1: the second process would
+    fail to open the folder.
     """
     if not QDRANT_PATH.exists():
         raise SystemExit(f"No index at {QDRANT_PATH} - run ingestion/index.py first.")
@@ -67,7 +66,7 @@ def client() -> QdrantClient:
 
 @lru_cache(maxsize=1)
 def parents() -> dict:
-    """parent_id -> full parent section. Read straight from disk, never embedded."""
+    """Map of parent_id -> full section. Plain JSON on disk, never embedded."""
     return {
         p["parent_id"]: p
         for p in (json.loads(line) for line in PARENTS_PATH.open(encoding="utf-8"))
@@ -75,23 +74,24 @@ def parents() -> dict:
 
 
 def embed_query(question: str) -> list[float]:
-    """Embed a QUESTION (not a passage) for search against the child index."""
+    """Turn a question into numbers, ready to search against the index."""
     vec = model().encode(QUERY_PREFIX + question, normalize_embeddings=True)
     return vec.tolist()
 
 
 def expand_to_parents(child_hits: list[dict], top_k: int = 5) -> list[dict]:
-    """Follow each child's parent_id to its full parent section, de-duped.
+    """Swap matched chunks for the full sections they came from, without repeats.
 
-    The "big" half of small-to-big: children are precise needles, but the LLM
-    reads the whole surrounding section so it sees the caveats too. A chunk
-    saying "you do not have to protect a holding deposit" is dangerous alone
-    and safe inside its section.
+    This is the "big" half of small-to-big retrieval. Small chunks make the
+    search precise, but a chunk on its own can be misleading - "you do not have
+    to protect a holding deposit" is dangerous alone and safe once you can see
+    the section it sits in. So the search matches chunks and the answer is
+    written from whole sections.
 
-    Note top_k counts UNIQUE PARENTS, not child hits - several children of the
-    same section collapse into one result, so a pool of 25 children can yield
-    far fewer than 25 parents. That is also why callers should rerank the whole
-    pool and let this function do the cutting.
+    top_k counts SECTIONS, not chunks. Several chunks often come from the same
+    section and collapse into one result, so 25 chunks can produce far fewer
+    than 25 sections. Callers should therefore hand over the whole list and let
+    this function do the cutting.
     """
     lookup = parents()
     results: list[dict] = []
@@ -110,7 +110,7 @@ def expand_to_parents(child_hits: list[dict], top_k: int = 5) -> list[dict]:
 
 
 def close() -> None:
-    """Release the local Qdrant folder lock (call at process end)."""
+    """Let go of the qdrant_data/ folder. Call this before the program exits."""
     if client.cache_info().currsize:
         client().close()
         client.cache_clear()

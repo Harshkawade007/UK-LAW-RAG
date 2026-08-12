@@ -1,15 +1,20 @@
 """
-fetch.py
+Downloads pages from gov.uk and saves them to laws/<category>/<page>.json
 
-Pulls pages from the gov.uk Content API and saves the cleaned JSON into
-laws/<category>/<page-slug>.json
+gov.uk has a Content API, so this asks for JSON directly rather than scraping
+HTML: https://www.gov.uk/api/content/<path>
 
-Two modes:
-    python fetch.py                # fetch just the hand-picked seeds in sources.py
-    python fetch.py --discover     # + crawl related links to grow the corpus
+    python fetch.py                     just the seed pages in sources.py
+    python fetch.py --discover          also follow links to find more pages
+    python fetch.py --category visa     one category only
+    python fetch.py --force             re-download pages already saved
 
-Run from the ingestion/ folder. Safe to re-run: skips files that already
-exist unless you pass --force.
+Run it from inside the ingestion/ folder. Re-running is safe: pages already on
+disk are skipped unless --force is passed.
+
+Every saved file has the same shape - title, description, body, source_url,
+last_updated, schema_name, category - so that cleaning and chunking can treat
+gov.uk and NHS pages identically. Keep that shape in any new fetcher.
 """
 
 import json
@@ -24,9 +29,12 @@ from sources import SOURCES
 API_BASE = "https://www.gov.uk/api/content/"
 LAWS_DIR = Path(__file__).parent.parent / "laws"
 HEADERS = {"User-Agent": "uk-student-legal-rag-project (personal portfolio project)"}
-RATE_LIMIT_DELAY = 0.3  # seconds between requests - well under gov.uk's 3000/5min limit
+# Pause between requests, to stay well inside gov.uk's limit of 3000 requests
+# per 5 minutes. Do not remove this, and keep a real User-Agent above - both
+# are basic courtesy when downloading someone else's site.
+RATE_LIMIT_DELAY = 0.3
 
-# Link fields on a gov.uk page that point at other content worth crawling.
+# The places on a gov.uk page that link to other pages worth downloading.
 LINK_TYPES = [
     "ordered_related_items",
     "related",
@@ -37,11 +45,12 @@ LINK_TYPES = [
     "children",
 ]
 
-# Schemas that carry no static body (interactive tools, redirects, landing hubs).
+# Page types with no readable text of their own: interactive tools, redirects,
+# and landing pages that are just lists of links.
 SKIP_SCHEMAS = {"smart_answer", "special_route", "redirect", "gone", "placeholder"}
 
-# base_path prefixes that are almost always non-guidance noise (PDFs, org pages,
-# consultation collections, news). Skip them during discovery.
+# Sections of gov.uk that are almost never guidance - news, statistics, PDFs,
+# organisation pages. Skipped while following links.
 NOISE_PREFIXES = (
     "/government/publications",
     "/government/collections",
@@ -55,7 +64,11 @@ NOISE_PREFIXES = (
 
 
 def slug_to_filename(path: str) -> str:
-    """Turn a gov.uk path like 'student-visa/family-members' into a safe filename."""
+    """'student-visa/family-members' -> 'student-visa__family-members.json'
+
+    Slashes become double underscores so the whole path fits in one filename.
+    This is also how a re-run knows which pages it already has.
+    """
     return path.replace("/", "__") + ".json"
 
 
@@ -71,17 +84,17 @@ def fetch_page(path: str) -> dict | None:
 
 
 def extract_body(data: dict) -> str:
-    """
-    gov.uk stores page content in different places depending on the page's
-    schema. Pull the text out wherever it lives:
+    """Find the page's text, wherever this kind of page happens to keep it.
 
-      - "answer" / "simple pages"  -> details.body
-      - "guide" (multi-chapter)    -> details.parts[*].{title, body}
-      - "transaction"              -> details.introductory_paragraph + more_information
+    gov.uk stores content in different fields depending on the page type:
+
+      simple pages          details.body
+      multi-chapter guides  details.parts[*].{title, body}
+      "start now" pages     details.introductory_paragraph + more_information
     """
     details = data.get("details", {}) or {}
 
-    # 1. Multi-chapter guides (student-visa, healthcare-immigration-application, ...)
+    # 1. Multi-chapter guides, such as the Student visa pages.
     parts = details.get("parts")
     if isinstance(parts, list) and parts:
         chunks = []
@@ -91,12 +104,12 @@ def extract_body(data: dict) -> str:
             chunks.append(f"<h2>{title}</h2>\n{body}" if title else body)
         return "\n\n".join(chunks).strip()
 
-    # 2. Simple answer/guide pages
+    # 2. Ordinary single pages.
     body = details.get("body")
     if body:
         return body.strip() if isinstance(body, str) else body
 
-    # 3. Transaction / "start now" pages keep prose in other fields
+    # 3. "Start now" pages, which keep their text in other fields entirely.
     transaction_bits = [
         details.get("introductory_paragraph", ""),
         details.get("more_information", ""),
@@ -106,7 +119,7 @@ def extract_body(data: dict) -> str:
 
 
 def linked_paths(data: dict) -> list[str]:
-    """Collect base_paths of related/child pages worth crawling next."""
+    """List the related pages worth downloading next."""
     out = []
     links = data.get("links", {}) or {}
     for link_type in LINK_TYPES:
@@ -121,7 +134,7 @@ def linked_paths(data: dict) -> list[str]:
 
 
 def save_page(category: str, path: str, data: dict) -> bool:
-    """Clean + write one page. Returns True if it was written with real content."""
+    """Write one page to disk. Returns True if it had real content to save."""
     body = extract_body(data)
     if not body:
         print(f"    skip (empty body): {path} (schema={data.get('schema_name')})")
@@ -153,9 +166,11 @@ def crawl_category(
     force: bool,
     visited_global: set[str],
 ):
-    """
-    BFS from the category's seed paths. With --discover, also follow related
-    links up to max_depth hops, capped at max_pages saved pages per category.
+    """Download one category, starting from its seed pages.
+
+    It works outwards a layer at a time: every seed page first, then everything
+    they link to, and so on. With `discover` off it stops after the seeds. With
+    it on, it goes up to max_depth links away and stops after max_pages.
     """
     queue = deque((s.strip(), 0) for s in seeds if s.strip())
     seen = set(p for p, _ in queue)
@@ -165,8 +180,9 @@ def crawl_category(
     while queue and saved < max_pages:
         path, depth = queue.popleft()
 
-        # De-dupe across the whole run so a page shared by two categories is
-        # only fetched once (it lands in whichever category reaches it first).
+        # A page linked from two categories should only be downloaded once. It
+        # is filed under whichever category reaches it first; dedupe.py sorts
+        # out any copies that still slip through across separate runs.
         if path in visited_global:
             continue
         visited_global.add(path)
@@ -174,7 +190,9 @@ def crawl_category(
         out_file = LAWS_DIR / category / slug_to_filename(path)
         if out_file.exists() and not force:
             print(f"  have: {path}")
-            data = None  # still want its links for discovery
+            # Already saved, but its links may still lead somewhere new, so
+            # fetch it again when discovering.
+            data = None
             if discover and depth < max_depth:
                 data = fetch_page(path)
         else:
@@ -189,7 +207,7 @@ def crawl_category(
                 saved += 1
             time.sleep(RATE_LIMIT_DELAY)
 
-        # Enqueue neighbours for discovery.
+        # Line up the pages this one links to.
         if discover and data is not None and depth < max_depth:
             for nxt in linked_paths(data):
                 if nxt not in seen and nxt not in visited_global:
@@ -197,6 +215,37 @@ def crawl_category(
                     queue.append((nxt, depth + 1))
 
     print(f"[{category}] saved {saved} new page(s)")
+
+
+def run(category: str | None = None, force: bool = False, discover: bool = False,
+        max_depth: int = 2, max_pages: int = 150) -> int:
+    """Download gov.uk pages into laws/. Returns the total number of pages.
+
+    This is the function other code calls - ingestion/build.py uses it
+    directly, and main() below is just the command-line wrapper around it.
+
+    Safe to re-run: pages already on disk are skipped unless `force` is set,
+    though their links are still followed when discovering.
+    """
+    categories = {category: SOURCES[category]} if category else SOURCES
+    visited_global: set[str] = set()
+
+    for cat, paths in categories.items():
+        if not paths:
+            print(f"\n[{cat}] no seeds yet - skipping")
+            continue
+        crawl_category(
+            cat, paths,
+            discover=discover,
+            max_depth=max_depth,
+            max_pages=max_pages,
+            force=force,
+            visited_global=visited_global,
+        )
+
+    total = sum(1 for _ in LAWS_DIR.rglob("*.json"))
+    print(f"\nDONE. Corpus now holds {total} page(s) across {len(list(LAWS_DIR.iterdir()))} categories.")
+    return total
 
 
 def main():
@@ -211,24 +260,7 @@ def main():
                         help="cap on saved pages per category (with --discover)")
     args = parser.parse_args()
 
-    categories = {args.category: SOURCES[args.category]} if args.category else SOURCES
-    visited_global: set[str] = set()
-
-    for category, paths in categories.items():
-        if not paths:
-            print(f"\n[{category}] no seeds yet - skipping")
-            continue
-        crawl_category(
-            category, paths,
-            discover=args.discover,
-            max_depth=args.max_depth,
-            max_pages=args.max_pages,
-            force=args.force,
-            visited_global=visited_global,
-        )
-
-    total = sum(1 for _ in LAWS_DIR.rglob("*.json"))
-    print(f"\nDONE. Corpus now holds {total} page(s) across {len(list(LAWS_DIR.iterdir()))} categories.")
+    run(args.category, args.force, args.discover, args.max_depth, args.max_pages)
 
 
 if __name__ == "__main__":

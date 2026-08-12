@@ -1,22 +1,27 @@
 """
-api/main.py
+The web server: a FastAPI wrapper around the search pipelines, plus a small
+web page for asking questions and comparing pipelines side by side.
 
-FastAPI wrapper around the RAG pipeline, plus a small web UI for trying
-questions and comparing retrieval modes side by side.
-
-Run from the project ROOT:
+Run it from the project root:
 
     uvicorn api.main:app          # then open http://127.0.0.1:8000
 
-Two things to know about running this:
+Endpoints:
 
-  * Models are pre-warmed at startup (see lifespan). Loading the embedding and
-    cross-encoder models takes ~12s; doing it once here keeps every request
-    fast instead of paying that cost on the first query.
+    POST /chat      ask a question with one pipeline
+    POST /compare   run all five pipelines and rate what each found
+    GET  /health    check the server is up
+    GET  /          the web page itself
 
-  * Do NOT use --reload or --workers > 1. Qdrant runs in local (embedded) mode
-    and holds a lock on the qdrant_data/ folder, so a second process fails to
-    start. One worker is plenty for local testing.
+Two things to know before running it:
+
+  * The models are loaded at startup, in the `lifespan` function below. Loading
+    them takes about 12 seconds, and doing it once here keeps every request
+    fast instead of making the first question pay for it.
+
+  * Do NOT use --reload or --workers > 1. The vector database is a local folder
+    that only one process can open at a time, so a second process would fail to
+    start. One worker is plenty for local use.
 """
 
 import time
@@ -38,12 +43,15 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Warm the caches so the first real request isn't paying model-load cost.
+    """Runs once at startup, then once more on shutdown after the `yield`."""
+    # Run a throwaway search so the models are loaded before anyone asks a real
+    # question. "rerank" is used rather than the default because it loads both
+    # models without making an LLM call, so starting the server costs nothing.
     print("Loading models (this takes a few seconds)...")
     retrieve("warmup query", top_k=1, mode="rerank")
     print("Ready -> http://127.0.0.1:8000")
     yield
-    close()  # release the local Qdrant folder lock
+    close()  # let go of the database folder on the way out
 
 
 app = FastAPI(title="UK Student Legal Assistant", lifespan=lifespan)
@@ -51,6 +59,13 @@ app = FastAPI(title="UK Student Legal Assistant", lifespan=lifespan)
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest) -> ChatResponse:
+    """Answer one question, and return every section the search found.
+
+    The sections come back with their scores whether or not an answer was
+    written, which makes it possible to inspect retrieval on its own. Setting
+    `generate` to false skips the LLM call entirely - free, and the quickest
+    way to compare pipelines.
+    """
     if req.mode not in MODES:
         raise HTTPException(400, f"unknown mode {req.mode!r}; use one of {list(MODES)}")
 
@@ -78,9 +93,9 @@ def chat(req: ChatRequest) -> ChatResponse:
         from agent.generate import generate_answer
 
         t1 = time.perf_counter()
-        # Only crag/agentic produce a grade; the other modes pass None here and
-        # answer unconditionally, exactly as before. Declining is a crag
-        # capability, not a global one.
+        # Only crag and agentic produce a grade. The other pipelines pass None
+        # here and always answer - being able to decline is a crag feature, not
+        # something the whole system does.
         result = generate_answer(req.question, parents,
                                  grade=(trace or {}).get("final_grade"))
         answer, refused = result["answer"], result["refused"]
@@ -99,12 +114,12 @@ def chat(req: ChatRequest) -> ChatResponse:
 
 @app.post("/compare", response_model=CompareResponse)
 def compare(req: CompareRequest) -> CompareResponse:
-    """Run the question through every pipeline and review what each retrieved.
+    """Run the question through all five pipelines and rate what each one found.
 
-    Explanation feature, not the search path: it makes the per-query
-    differences between pipelines visible, which aggregate metrics hide. Slow
-    on purpose (all five pipelines plus a judging call) and only ever runs
-    when explicitly asked for.
+    This is an explanation feature, not part of normal searching. It shows the
+    per-question differences between pipelines that an average score hides. It
+    is slow on purpose - five pipelines plus one rating call, around 40 seconds
+    - and only runs when asked for.
     """
     from agent.review import review_pipelines
 

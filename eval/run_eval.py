@@ -1,39 +1,46 @@
 """
-eval/run_eval.py
+Scores the pipelines against the questions in eval/testset.py.
 
-Runs the TESTSET against the current pipeline and reports how well it does.
-This is the ruler every future retrieval change gets measured against.
+This is the measuring stick for the whole project: any change to retrieval is
+judged by whether the numbers here move.
 
-Two things it can check:
+What it measures:
 
-  1. RETRIEVAL HIT-RATE (always, free, deterministic)
-     For each question, retrieve top-k parents and check whether at least one
-     expected_parent_id made it in. This isolates retrieval quality from
-     generation - exactly what you need before/after adding hybrid search or
-     reranking in Week 2, without spending an LLM call per run.
+  1. Did the search find the right SECTION? For each question it runs the
+     search and checks whether one of the sections known to hold the answer
+     came back in the top few. This is free, needs no LLM call, and gives the
+     same result every time for the pipelines that do not use an LLM.
 
-     Scored at PARENT_ID (section) granularity, not page URL. A page can have
-     dozens of sections that all share one source_url, so scoring on the URL
-     could not tell "found the right section" from "found any section of the
-     right page" - it also couldn't see rank changes WITHIN a page at all.
-     See eval/testset.py's docstring for the case that proved this mattered.
+     Two numbers come out of it:
 
-  2. GENERATED ANSWERS (optional, --with-answers, costs DeepInfra credits)
-     Also runs the full retrieve -> generate path and saves each answer to
-     eval/results/<timestamp>.json for you to read and judge faithfulness by
-     eye (roadmap's Day 10 RAGAS scoring is the automated version of this;
-     this is the manual version you can use right now).
+       hit-rate  the share of questions where the right section appeared
+                 anywhere in the results
+       MRR       Mean Reciprocal Rank - 1.0 if the right section was first,
+                 0.5 if second, 0.33 if third, 0 if it never appeared.
+                 Averaged over all the questions. This is the more useful of
+                 the two, because hit-rate cannot tell an answer at position 1
+                 from the same answer at position 5.
 
-Usage (run from the project ROOT). Name pipelines positionally - no names runs
-the default, one name runs that pipeline, two or more compares them:
+     Scoring happens at SECTION level, not page level. Pages have dozens of
+     sections sharing one URL, so scoring by URL would give full marks for
+     finding any part of the right page - and would be blind to a change that
+     moved the correct section from third place to first.
 
-    python -m eval.run_eval                    # rerank alone - fast, free
-    python -m eval.run_eval crag               # one pipeline
-    python -m eval.run_eval dense crag         # compare two, side by side
-    python -m eval.run_eval free               # dense hybrid rerank (no credits)
-    python -m eval.run_eval all                # every pipeline (costs credits)
-    python -m eval.run_eval --k 8 dense crag   # different top-k
-    python -m eval.run_eval --with-answers crag  # + generation, saved to results/
+  2. Optionally, the answers themselves (--with-answers). This runs the full
+     search-and-write path and saves every answer to eval/results/ so they can
+     be read and judged by eye. It uses API credits.
+
+Run it from the project root. Pipeline names are given as plain arguments: no
+name runs the default, one name runs that pipeline, two or more compares them
+side by side.
+
+    python -m eval.run_eval                      rerank alone - fast and free
+    python -m eval.run_eval crag                 one pipeline
+    python -m eval.run_eval dense crag           compare two
+    python -m eval.run_eval free                 dense, hybrid, rerank
+    python -m eval.run_eval all                  all of them (uses credits)
+    python -m eval.run_eval --k 8 dense crag     retrieve 8 sections instead of 5
+    python -m eval.run_eval --with-answers crag  also write and save answers
 """
 
 import json
@@ -48,15 +55,14 @@ from retrieval.search import retrieve_traced, close, MODES
 
 RESULTS_DIR = Path(__file__).parent / "results"
 
-# ONE answer to "which pipeline does eval use by default", referenced by every
-# default below. Deliberately NOT "crag" (the system-wide default): rerank is
-# deterministic and makes no LLM calls, so a bare run is free and reproduces
-# exactly, and holding it fixed keeps every recorded per-stage baseline
-# comparable to the numbers in README.md.
+# Which pipeline runs when no name is given. Deliberately NOT "crag", which is
+# the default everywhere else: rerank makes no LLM calls, so a plain run costs
+# nothing and gives exactly the same numbers every time. Keeping it fixed also
+# keeps old recorded scores comparable with new ones.
 DEFAULT_MODE = "rerank"
 
-# Shorthands usable anywhere a mode name is. "free" is the set that costs no
-# API credits; "all" is everything, including the three that call an LLM.
+# Shorthands that can be used anywhere a pipeline name can. "free" is the set
+# that costs no API credits; "all" includes the ones that call an LLM.
 ALIASES = {
     "free": ["dense", "hybrid", "rerank"],
     "all": list(MODES),
@@ -64,11 +70,11 @@ ALIASES = {
 
 
 def check_retrieval(question: dict, top_k: int, mode: str = DEFAULT_MODE) ->dict:
-    """Retrieve for one question and check whether an expected SECTION was hit.
+    """Run the search for one question and check whether it found the answer.
 
-    Scored on parent_id, not source_url - see the module docstring and
-    eval/testset.py for why page-level scoring was structurally blind to
-    most retrieval changes.
+    A question with no expected sections is an out-of-corpus question: the
+    corpus genuinely does not cover it, and the right behaviour is to decline.
+    Those are excluded from the scores rather than counted as failures.
     """
     expected = set(question["expected_parent_ids"] or [])
 
@@ -87,20 +93,21 @@ def check_retrieval(question: dict, top_k: int, mode: str = DEFAULT_MODE) ->dict
         "expected_parent_ids": sorted(expected),
         "retrieved_parent_ids": got,
         "hit": hit,
-        "rank": rank,          # 1-indexed position of the first correct hit, if any
-        "is_refusal_case": not expected,   # out-of-corpus questions have no expected section
+        "rank": rank,          # where the first correct section landed (1 = first)
+        "is_refusal_case": not expected,   # a question the corpus cannot answer
         "seconds": round(elapsed, 2),
-        # "crag": how the retrieval was graded and whether that triggered the
-        # expensive rewrite. "agentic": which pipeline the selector picked.
-        # Cost and behaviour are half the point of comparing modes.
+        # What the pipeline decided, where it decided anything: crag records
+        # its grade and whether it retried, agentic records what it chose.
+        # Behaviour and cost are half the point of comparing pipelines.
         "grade": (trace or {}).get("grade"),
         "escalated": (trace or {}).get("escalated"),
         "selected": (trace or {}).get("selected"),
-        "parents": parents,     # kept for --with-answers; not printed in the summary
+        "parents": parents,    # only needed by --with-answers; never printed
     }
 
 
 def run(top_k: int, with_answers: bool, mode: str = DEFAULT_MODE) ->list[dict]:
+    """Run every test question through one pipeline."""
     results = [check_retrieval(q, top_k, mode=mode) for q in TESTSET]
 
     if with_answers:
@@ -113,11 +120,15 @@ def run(top_k: int, with_answers: bool, mode: str = DEFAULT_MODE) ->list[dict]:
 
 
 def mrr(results: list[dict]) -> float:
-    """Mean Reciprocal Rank over the scored questions.
+    """Mean Reciprocal Rank: the headline score.
 
-    Hit-rate saturates at 100% on this testset, so it cannot show whether a
-    retrieval change helped. MRR can: it rewards moving a correct source from
-    rank 3 to rank 1 (0.33 -> 1.00), which is exactly what better ranking does.
+    For each question take 1 divided by the position of the first correct
+    section (1st -> 1.0, 2nd -> 0.5, 3rd -> 0.33, never found -> 0), then
+    average across all the questions.
+
+    This is more informative than hit-rate, which only asks whether the right
+    section appeared at all. Better ranking mostly moves a correct section from
+    third place to first, and hit-rate cannot see that happen.
     """
     scored = [r for r in results if not r["is_refusal_case"]]
     if not scored:
@@ -126,10 +137,11 @@ def mrr(results: list[dict]) -> float:
 
 
 def cost_line(results: list[dict]) -> str:
-    """Latency and escalation summary - the other half of any mode comparison.
+    """Speed and behaviour summary - the other half of comparing pipelines.
 
-    A mode that matches another's accuracy while escalating rarely is the whole
-    point of "crag", so this has to sit next to MRR rather than be inferred.
+    A pipeline that matches another's accuracy while being cheaper or rarely
+    retrying is a genuinely better pipeline, so this belongs next to the score
+    rather than being worked out separately.
     """
     avg = sum(r["seconds"] for r in results) / len(results)
     line = f"avg {avg:.2f}s/question"
@@ -147,11 +159,12 @@ def cost_line(results: list[dict]) -> str:
 
 
 def oracle_mrr(runs: dict[str, list[dict]]) -> float:
-    """Best achievable MRR if a perfect selector picked the best mode per query.
+    """The score a perfect chooser would get, picking the best pipeline per question.
 
-    The ceiling any pipeline-selection strategy is aiming at - and the number
-    that showed selection was worth building at all (0.8221 vs the best single
-    pipeline's 0.6743 across dense/hybrid/rerank/route/crag).
+    This is not achievable in practice - it uses the answers to decide - but it
+    shows the ceiling. The gap between it and the best single pipeline is how
+    much is left on the table by always using the same one. See
+    retrieval/agentic.py for the attempt to close that gap.
     """
     modes = list(runs)
     n = len(runs[modes[0]])
@@ -191,11 +204,12 @@ def print_summary(results: list[dict], mode: str = "") -> None:
 
 
 def _slim(results: list[dict]) -> list[dict]:
-    """Drop the bulky parent texts before writing a run to disk."""
+    """Drop the full section texts before saving - they make the file huge."""
     return [{k: v for k, v in r.items() if k != "parents"} for r in results]
 
 
 def _write(name: str, payload) -> Path:
+    """Save one run to eval/results/ under a timestamped filename."""
     RESULTS_DIR.mkdir(exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     path = RESULTS_DIR / f"{stamp}-{name}.json"
@@ -210,7 +224,7 @@ def save_results(results: list[dict], with_answers: bool, mode: str = "") -> Pat
 
 
 def save_comparison(runs: dict[str, list[dict]]) -> Path:
-    """Persist a multi-mode run so the progression stays on the record."""
+    """Save a multi-pipeline comparison so the results can be looked at later."""
     return _write("compare", {
         "metrics": {
             mode: {"mrr": mrr(results),
@@ -222,10 +236,10 @@ def save_comparison(runs: dict[str, list[dict]]) -> Path:
 
 
 def print_comparison(runs: dict[str, list[dict]]) -> None:
-    """Side-by-side rank per question across modes - the progression artifact.
+    """Print a table of where each pipeline ranked the answer, question by question.
 
-    Modes are compared left to right, so each column is the previous stage plus
-    one technique. The final column is the current pipeline.
+    The columns run left to right in the order the pipelines were named, and
+    the BETTER / WORSE markers compare the last column against the first.
     """
     modes = list(runs)
     header = " ".join(f"{m[:6]:>6}" for m in modes)
@@ -241,7 +255,8 @@ def print_comparison(runs: dict[str, list[dict]]) -> None:
         cells = " ".join(f"{str(r or '-'):>6}" for r in ranks)
 
         first, last = ranks[0], ranks[-1]
-        # A missing rank means the expected source fell out of top-k entirely.
+        # A rank of None means the correct section never appeared at all, so it
+        # counts as worse than any real position.
         if last and (first is None or last < first):
             improved += 1
             marker = "BETTER"
@@ -261,7 +276,7 @@ def print_comparison(runs: dict[str, list[dict]]) -> None:
     for m in modes:
         print(f"{m:>8}  {cost_line(runs[m])}")
 
-    # Only meaningful with several genuine pipelines to choose between.
+    # Only worth printing when there is more than one pipeline to choose from.
     if len(modes) > 1:
         oracle = oracle_mrr(runs)
         best = max(mrr(runs[m]) for m in modes)
@@ -273,14 +288,14 @@ def print_comparison(runs: dict[str, list[dict]]) -> None:
 
 
 def resolve_modes(names: list[str]) -> list[str]:
-    """Turn the positional arguments into an ordered, de-duplicated mode list.
+    """Turn the command-line arguments into a list of pipeline names.
 
-    Expands the ALIASES ("free", "all") and drops repeats while keeping the
-    order the user typed, since that order drives the comparison table's
-    baseline -> latest columns.
+    Expands the shorthands ("free", "all") and removes repeats while keeping
+    the order they were typed in, because that order decides the columns of the
+    comparison table.
 
-    Raises ValueError naming the bad entries, so main() can turn it into a
-    clean argparse error rather than a traceback.
+    Raises ValueError naming the bad entries, so main() can print a clean error
+    instead of a stack trace.
     """
     if not names:
         return [DEFAULT_MODE]
@@ -330,8 +345,8 @@ def main():
     except ValueError as exc:
         parser.error(str(exc))
 
-    # Two or more pipelines is a comparison; one is a plain run. Generation is
-    # deliberately not offered for comparisons - it would multiply the credit
+    # Two or more names means a comparison; one means a plain run. Writing
+    # answers is not offered for comparisons, because it would multiply the API
     # cost by the number of pipelines for output nobody reads side by side.
     comparing = len(modes) > 1
     if comparing and args.with_answers:

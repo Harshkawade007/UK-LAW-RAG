@@ -1,39 +1,31 @@
 """
-retrieval/rerank.py
+Pipeline 3 of 5: reranking, the most accurate scoring stage.
 
-PIPELINE 3 of 5 - cross-encoder reranking: the last and most accurate scoring
-stage.
+    hybrid.py's ~25 chunks -> a model re-scores each one -> full sections
 
-    hybrid.py pool -> cross-encoder re-scores every candidate -> parents
+Dense search and BM25 never look at the question and a chunk TOGETHER. Dense
+search turns each into numbers separately and compares them - the chunk's
+numbers were worked out long before the question existed. BM25 only counts
+shared words. So both get stuck on questions like "Can I work part-time while
+studying on a student visa?", where a Child Student visa section looks nearly
+identical to a Student visa one.
 
-Measured: MRR@5 0.6608. It is the shared foundation of crag.py (which grades
-its output) and route.py (which runs it once per branch), so a change here
-moves three pipelines at once.
+A cross-encoder is a different kind of model. It reads (question, chunk) as one
+joined piece of text and returns a single relevance score. Because it sees both
+at once, it can notice that the Child Student visa is a different route from
+the one being asked about.
 
-Why this exists (what dense and BM25 structurally cannot do):
-    Dense search embeds the question and the chunk SEPARATELY and compares two
-    fixed vectors - the chunk's vector was computed long before the question
-    existed. BM25 only counts word overlap. Neither ever reads the two together.
+That is why it runs last. Scoring one pair costs a full pass through the model,
+which would be far too slow for all 4,700 chunks - so it only re-scores the ~25
+candidates the earlier stages already narrowed down. Cheap search first,
+expensive judgement last.
 
-    So both get stuck on cases like "Can I work part-time while studying on a
-    student visa?", where "Student visa" and "Child Student visa" look nearly
-    identical to an embedding (0.788 vs 0.787) and share all the query's words
-    for BM25. Hybrid search did not fix this.
+crag.py and route.py both build on this file, so a change here affects three
+pipelines at once.
 
-    A cross-encoder takes (question, chunk) as ONE joined input and returns a
-    single relevance score. Because it sees both at once it can notice that the
-    Child Student visa is a different route from the one being asked about.
-
-Why it runs last:
-    Scoring a (query, chunk) pair means a full model pass per pair, so it is far
-    too slow for all 4,721 children. It only re-scores the ~25 candidates hybrid
-    search already narrowed down - cheap search first, expensive judgement last.
-
-Model note:
-    ms-marco-MiniLM-L-6-v2 is small (22M params, ~90MB) and CPU-friendly, chosen
-    because this machine has very little free virtual memory and has already hit
-    "paging file is too small" loading models. Swap MODEL_NAME for a bigger
-    reranker (e.g. BAAI/bge-reranker-v2-m3) on hardware that can hold it.
+The model is deliberately small (~90 MB) so it runs on an ordinary CPU with
+little memory. On a bigger machine, swapping MODEL_NAME for something like
+BAAI/bge-reranker-v2-m3 (~2.3 GB) would score better.
 """
 
 from functools import lru_cache
@@ -44,26 +36,28 @@ from retrieval.hybrid import hybrid_search
 from retrieval.store import expand_to_parents
 
 MODEL_NAME = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-# A few children reach ~515 tokens; with the question prepended the pair can
-# exceed the model's window, so cap it explicitly rather than silently truncate.
+
+# The model can only read so much text at once. A few chunks are long enough
+# that the question plus the chunk goes over that limit, so set it explicitly
+# rather than letting the text be cut off without warning.
 MAX_LENGTH = 512
 
 
 @lru_cache(maxsize=1)
 def _reranker() -> CrossEncoder:
-    """Load the cross-encoder once per process (same pattern as search.py)."""
+    """Load the cross-encoder once per process, then reuse it."""
     return CrossEncoder(MODEL_NAME, max_length=MAX_LENGTH)
 
 
 def rerank(question: str, child_hits: list[dict], top_n: int | None = None) -> list[dict]:
-    """Re-score child chunks against the question and return them best-first.
+    """Re-score chunks against the question and return them best first.
 
-    Each returned hit gains a "rerank_score". The original retrieval score is
-    kept as "retrieval_score" so a trace can show how the ordering changed.
+    Each chunk gains a "rerank_score", and its old score is kept as
+    "retrieval_score" so it is possible to see how the order changed.
 
-    top_n: optionally truncate after reranking. Leave as None to rerank the
-    whole pool and let expand_to_parents() do the cutting - slicing children
-    here can yield fewer unique parents than expected.
+    top_n: optionally cut the list short. Leaving it as None is usually right -
+    several chunks often belong to the same section, so cutting here can leave
+    fewer unique sections than the caller asked for.
     """
     if not child_hits:
         return []
@@ -81,13 +75,11 @@ def rerank(question: str, child_hits: list[dict], top_n: int | None = None) -> l
 
 
 def rerank_pool(question: str, categories: list[str] | None, pool: int) -> list[dict]:
-    """hybrid search, then rerank the WHOLE pool. Returns CHILD hits.
+    """Search, then rerank everything found. Returns CHUNKS, not sections.
 
-    Exposed separately from run() because route.py needs the reranked children
-    of each branch in order to fuse them by rank - it cannot use parents.
-
-    Do not truncate here: slicing children before expand_to_parents can yield
-    fewer than top_k unique parents, since several children often share one.
+    Kept separate from run() because route.py needs the reranked chunks of each
+    rewritten query so it can merge them by position - it cannot do that with
+    whole sections.
     """
     child_hits = hybrid_search(question, limit=pool, categories=categories)
     return rerank(question, child_hits)
@@ -95,5 +87,5 @@ def rerank_pool(question: str, categories: list[str] | None, pool: int) -> list[
 
 def run(question: str, top_k: int = 5, categories: list[str] | None = None,
         pool: int = 25) -> tuple[list[dict], None]:
-    """The rerank pipeline. See search.py for the shared contract."""
+    """Run the rerank pipeline. Same shape as every pipeline - see search.py."""
     return expand_to_parents(rerank_pool(question, categories, pool), top_k=top_k), None

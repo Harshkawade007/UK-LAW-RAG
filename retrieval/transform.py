@@ -1,38 +1,30 @@
 """
-retrieval/transform.py
+The LLM call that rewrites a question before searching. Used by route.py.
 
-Query transformation + routing: one LLM call that turns the user's raw question
-into the query (or queries) we should actually search with, plus the corpus
-categories each one belongs to.
+It takes the user's question and returns the query (or queries) to actually
+search with, each tagged with the categories most likely to hold the answer.
 
-Why this exists (what retrieval structurally cannot do):
-    Every stage downstream of this file - dense, BM25, the cross-encoder - only
-    ever sees the words the user typed. If a student asks "can I work extra
-    during reading week?" and gov.uk writes "permitted working hours during
-    term-time", the right chunk never enters the candidate pool at all. No
-    amount of reranking recovers a chunk that was never retrieved. The only
-    place to fix a vocabulary mismatch is BEFORE the search.
+Why rewriting helps: every search stage only ever sees the words the user
+typed. If someone asks "can I work extra during reading week?" and the official
+page says "permitted working hours during term-time", the right chunk is never
+even found, and no later stage can rescue it. Fixing the wording has to happen
+before the search.
 
-    The same call also splits genuinely multi-domain questions ("I'm on a
-    Student visa, can I switch to Skilled Worker?") into separate sub-queries,
-    which is how we get multi-hop retrieval without an agent loop.
+The same call also splits a question covering two genuinely different topics
+("I'm on a Student visa, can I switch to Skilled Worker?") into separate
+queries, so each gets its own search.
 
-Why the routing is only ever a HINT:
-    The `category` field on each chunk is a filing artifact, not a semantic
-    label - a page's category came from which seed list crawled it (and
-    dedupe.py's CATEGORY_PRIORITY), not from what the page is about. So
-    "National Insurance: introduction" sits under `visa`, and Council Tax
-    lives under `housing`. A model reasoning topically will route "NI number"
-    to `tax_ni` and never see that introduction page.
+The categories are only ever a HINT. A page's category records which seed list
+found it, not what it is about - so the "National Insurance: introduction" page
+sits under `visa`, and Council Tax sits under `housing`. A model reasoning
+about topics will send "NI number" to `tax_ni` and never see that page. That is
+why route.py always runs one unfiltered search alongside whatever this
+suggests: the categories can reorder results but never lose them.
 
-    That is why search.py always runs an UNFILTERED branch alongside whatever
-    this function suggests. Routing here can reorder results; it can never
-    lose them. Read the categories below as "also look here", not "only here".
-
-Failure is not an error:
-    Returning [] is a valid, expected outcome - the caller falls back to
-    plain single-query retrieval. A bad token, a timeout, or malformed JSON
-    must never take retrieval down with it.
+Returning an empty list is a normal outcome, not an error. If the network call
+fails or the reply cannot be read, the caller simply searches the original
+question - which is exactly the rerank pipeline. A broken rewrite must never
+take search down with it.
 """
 
 import json
@@ -44,22 +36,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Deliberately smaller than the generator's model: this is rephrasing and
-# classification, not reasoning, and it sits in front of EVERY query. Swap the
-# constant if the rewrites turn out to be sloppy.
+# A small, cheap model on purpose. This is rephrasing and labelling, not
+# reasoning, and it runs in front of every query in this pipeline.
 MODEL = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 BASE_URL = "https://api.deepinfra.com/v1/openai"
 
 MAX_SUBQUERIES = 3
 TIMEOUT_S = 15
 
-# The seven corpus categories. Anything the model invents outside this set is
-# dropped rather than passed to Qdrant.
+# The seven categories that exist. If the model invents any other name it is
+# thrown away rather than passed to the database as a filter.
 CATEGORIES = {"visa", "tax_ni", "housing", "banking", "nhs", "employment", "education"}
 
-# Describes what each category ACTUALLY contains in this corpus, including the
-# places where the filing is counter-intuitive. Without these notes the model
-# routes on the category's name and misses the content.
+# What each category ACTUALLY holds, including the places where the filing is
+# surprising. Without these notes the model guesses from the category name and
+# misses the content.
 CATEGORY_GUIDE = """\
 - visa: Student visa, Child Student visa, Graduate visa, Skilled Worker visa, family \
 visas, switching routes, BRP cards, TB tests, visa fees. Also holds the general \
@@ -122,11 +113,11 @@ def _client() -> OpenAI:
 
 
 def _parse(raw: str) -> list[dict]:
-    """Pull the query list out of the model's reply, tolerating stray wrapping.
+    """Pull the list of queries out of the model's reply.
 
-    Small models like to wrap JSON in ``` fences or add a sentence before it,
-    so we slice from the first brace to the last rather than trusting the reply
-    to be clean.
+    Small models often wrap their JSON in code fences or add a sentence before
+    it, so take everything from the first { to the last } rather than assuming
+    the reply is clean.
     """
     start, end = raw.find("{"), raw.rfind("}")
     if start == -1 or end == -1:
@@ -138,19 +129,20 @@ def _parse(raw: str) -> list[dict]:
         query = (item.get("query") or "").strip()
         if not query:
             continue
-        # Keep only categories that actually exist, so a hallucinated name
-        # can't turn into a Qdrant filter that matches nothing.
+        # Keep only real category names, so an invented one cannot become a
+        # filter that quietly matches nothing at all.
         cats = [c for c in item.get("categories") or [] if c in CATEGORIES]
         out.append({"query": query, "categories": cats or None})
     return out
 
 
 def transform(question: str, model: str = MODEL) -> list[dict]:
-    """Rewrite and route a question into search branches.
+    """Rewrite a question into one or more searchable queries.
 
     Returns [{"query": str, "categories": list[str] | None}, ...] - at most
-    MAX_SUBQUERIES of them - or [] if the call failed or produced nothing
-    usable. The caller treats [] as "just search the original question".
+    MAX_SUBQUERIES of them - or an empty list if the call failed or produced
+    nothing usable. The caller reads an empty list as "just search the original
+    question".
     """
     try:
         resp = _client().chat.completions.create(
@@ -164,5 +156,5 @@ def transform(question: str, model: str = MODEL) -> list[dict]:
         )
         return _parse(resp.choices[0].message.content or "")
     except Exception:
-        # Any failure here degrades to plain retrieval rather than breaking it.
+        # Any failure falls back to plain search rather than breaking it.
         return []

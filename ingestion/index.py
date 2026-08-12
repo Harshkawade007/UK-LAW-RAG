@@ -1,36 +1,37 @@
 """
-index.py
+Turns the chunks into numbers and stores them in a searchable database.
 
-Embeds the child chunks and loads them into a Qdrant vector index.
+    chunks/children.jsonl  ->  qdrant_data/
 
-What it does (embed + index in one pass - see below for why they're merged):
-  1. Read chunks/children.jsonl (the ~250-token slices from chunk.py).
-  2. Embed each child's text with bge-small-en-v1.5 -> 384-dim vectors.
-  3. Create a Qdrant collection and upsert one point per child:
-        id      = a stable UUID derived from child_id (idempotent re-runs)
-        vector  = the embedding
-        payload = the child's metadata + text (incl. parent_id, category)
-  4. Print a sanity search so you can see retrieval working immediately.
+What it does:
 
-Only CHILDREN are embedded. Parents are NOT - they stay in
-chunks/parents.jsonl as a plain lookup, fetched by parent_id at query time
-after a child matches. That's the whole point of parent-document retrieval:
-search small (precise), return big (full context).
+  1. Reads the chunks that chunk.py produced.
+  2. Runs each one through an embedding model, which turns text into a list of
+     384 numbers. Similar meanings produce similar numbers, and that is what
+     makes searching by meaning possible.
+  3. Creates a Qdrant collection and stores one entry per chunk: the numbers,
+     plus the chunk's text and metadata.
+  4. Runs a test search so it is obvious straight away that it worked.
 
-Why embed + index in one script (not two):
-  bge-small runs locally and free, so there's no API cost that would justify
-  caching vectors to disk between an embed step and an index step. Re-running
-  the whole thing is cheap. (If you ever switch to a paid embedding API,
-  split the embedding out so you don't pay to re-embed on every index tweak.)
+Only the CHUNKS are embedded. The whole sections are not - they stay in
+chunks/parents.jsonl as an ordinary file, looked up by id after a chunk
+matches. That is the point of small-to-big retrieval: search small pieces for
+precision, return whole sections for context.
 
-Qdrant runs in LOCAL mode here - it writes an index straight to ./qdrant_data,
-no Docker, no server. The same code points at a real Qdrant container in
-production by swapping QdrantClient(path=...) for QdrantClient(url=...).
+Embedding and storing happen in one script because the model runs locally and
+costs nothing, so there is no reason to save the numbers in between. If a paid
+embedding API were used instead, it would be worth splitting them apart to
+avoid paying twice.
 
-Usage (run from the ingestion/ folder):
-    python index.py                  # build the index + run the sanity search
-    python index.py --batch-size 128
-    python index.py --no-test        # skip the sanity search
+Qdrant runs in local mode here: it writes to the qdrant_data/ folder directly,
+with no Docker and no server to start. Pointing at a real Qdrant server later
+means changing QdrantClient(path=...) to QdrantClient(url=...) and nothing else.
+
+Usage (run from inside the ingestion/ folder):
+
+    python index.py                  build the index and run the test search
+    python index.py --batch-size 128 embed more at once (needs more memory)
+    python index.py --no-test        skip the test search
 """
 
 import json
@@ -47,20 +48,27 @@ from qdrant_client.models import (
 CHUNKS_DIR = Path(__file__).parent.parent / "chunks"
 QDRANT_PATH = Path(__file__).parent.parent / "qdrant_data"
 
+# ⚠️ These three must stay identical to the ones in retrieval/store.py. The
+# search side has its own copy because ingestion/ runs as standalone scripts.
+# Change one and you must change the other, then rebuild - otherwise questions
+# and documents end up described by different sets of numbers, and the search
+# quietly returns nonsense.
 MODEL_NAME = "BAAI/bge-small-en-v1.5"
 COLLECTION = "law_children"
 VECTOR_SIZE = 384
 
-# bge-*-en-v1.5 is asymmetric: passages are embedded as-is, but QUERIES get a
-# short instruction prefix for a retrieval boost. Passages (children) here go in
-# plain; the query path (later, in retrieval/) will prepend this to questions.
+# This model treats questions and documents differently: questions get this
+# sentence stuck on the front, documents do not. Documents are stored plain
+# here, and retrieval/store.py adds the prefix to questions at search time.
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
-# Deterministic namespace so the same child_id always maps to the same point id.
+# A fixed starting value so that the same chunk always gets the same id. That
+# is what makes re-running this update entries instead of duplicating them.
 _NS = uuid.UUID("00000000-0000-0000-0000-00000000ca11")
 
 
 def load_children() -> list[dict]:
+    """Read the chunks produced by chunk.py."""
     path = CHUNKS_DIR / "children.jsonl"
     if not path.exists():
         raise SystemExit(f"No children at {path} - run chunk.py first.")
@@ -68,11 +76,12 @@ def load_children() -> list[dict]:
 
 
 def point_id(child_id: str) -> str:
-    """Stable UUID from a child_id, so re-indexing updates rather than duplicates."""
+    """Turn a chunk id into a database id, the same way every time."""
     return str(uuid.uuid5(_NS, child_id))
 
 
 def build(children: list[dict], batch_size: int) -> QdrantClient:
+    """Embed every chunk and write them into a fresh collection."""
     print(f"Loading model {MODEL_NAME} (first run downloads ~130 MB)...")
     model = SentenceTransformer(MODEL_NAME)
 
@@ -81,21 +90,22 @@ def build(children: list[dict], batch_size: int) -> QdrantClient:
     vectors = model.encode(
         texts,
         batch_size=batch_size,
-        normalize_embeddings=True,   # so cosine similarity behaves well
+        normalize_embeddings=True,   # makes the similarity comparison behave
         show_progress_bar=True,
     )
 
     print(f"Opening Qdrant (local) at {QDRANT_PATH}")
     client = QdrantClient(path=str(QDRANT_PATH))
 
-    # Fresh collection each build - cheap, and keeps the index in sync with chunks.
+    # Start from an empty collection every time. It is quick, and it guarantees
+    # the database matches the chunks rather than holding leftovers from before.
     if client.collection_exists(COLLECTION):
         client.delete_collection(COLLECTION)
     client.create_collection(
         collection_name=COLLECTION,
         vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE),
     )
-    # Index category so we can filter by it later (query routing / metadata filters).
+    # Makes filtering by category fast later on.
     client.create_payload_index(COLLECTION, "category", PayloadSchemaType.KEYWORD)
 
     points = [
@@ -110,7 +120,7 @@ def build(children: list[dict], batch_size: int) -> QdrantClient:
 
 
 def sanity_check(client: QdrantClient) -> None:
-    """Embed a test question the same way and show the top hits."""
+    """Run one test search and print the results, to prove the index works."""
     model = SentenceTransformer(MODEL_NAME)
     question = "Can I get student finance for a second degree?"
     qvec = model.encode(QUERY_PREFIX + question, normalize_embeddings=True)
@@ -135,7 +145,7 @@ def main():
         if not args.no_test:
             sanity_check(client)
     finally:
-        client.close()  # release the local-mode folder lock cleanly
+        client.close()  # always let go of the folder, even if the search failed
 
 
 if __name__ == "__main__":

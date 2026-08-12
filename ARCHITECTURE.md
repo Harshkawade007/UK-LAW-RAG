@@ -6,7 +6,16 @@ What actually happens between a question and an answer, and why each piece is sh
 
 ## Build time
 
-Runs offline. Produces two things the query side depends on.
+Runs offline, needs no API token. **`python build.py`** runs the whole chain; the individual scripts still work standalone.
+
+```
+python build.py            clean -> chunk -> index      (from the committed laws/)
+python build.py --force    re-clean every page
+python build.py --from chunk   resume part-way
+python build.py --fetch    fetch -> dedupe -> clean -> chunk -> index   (warns first)
+```
+
+⚠️ **`dedupe` must run before `clean`, and `build.py` exists partly to enforce that.** `dedupe.py` deletes duplicate pages from `laws/`, but `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate dedupe removed. Nothing errors. `build.py` prunes orphans and forces a full re-clean after any fetch.
 
 ```
 gov.uk Content API          nhs.uk HTML
@@ -251,7 +260,7 @@ store ← dense ← hybrid ← rerank ← { route, crag } ← search
 
 `agentic.py` is the single exception: it needs the dispatcher itself, so it imports `search.py` **inside `run()`**. Move that to module level and the package stops importing.
 
-⚠️ **`MODEL_NAME`, `COLLECTION`, `QUERY_PREFIX` and the 384 dimensions are duplicated** between `retrieval/store.py` and `ingestion/index.py` — deliberately, because `ingestion/` runs as loose scripts from its own folder. Change one without the other and nothing errors; your query just lands in a different vector space than the index and results quietly turn to noise.
+⚠️ **`MODEL_NAME`, `COLLECTION`, `QUERY_PREFIX` and the 384 dimensions are duplicated** between `retrieval/store.py` and `ingestion/index.py` — deliberately, so the build side never imports the query side. Change one without the other and nothing errors; your query just lands in a different vector space than the index and results quietly turn to noise.
 
 ---
 

@@ -118,17 +118,15 @@ uv sync                          # or: pip install -r requirements.txt
 echo 'DEEPINFRA_TOKEN=your_token_here' > .env
 ```
 
-**Build the index** (once, ~2 min). The fetched corpus `laws/` is committed; everything derived from it is not, so you build it locally:
+**Build the index** — one command, ~3 min, **no API token needed**. The fetched corpus `laws/` is committed; everything derived from it is not, so you build it locally:
 
 ```bash
-python ingestion/clean.py        # laws/ -> cleaned/
-python ingestion/chunk.py        # cleaned/ -> chunks/   4,721 children + parents
-python ingestion/index.py        # chunks/ -> qdrant_data/
+python build.py
 ```
 
-This is deterministic — a rebuild reproduces the scores in the table above exactly. That is *why* `laws/` is committed rather than re-fetched: the testset's ground truth is section IDs pinned to this snapshot of gov.uk, and live pages drift.
+That runs `clean` → `chunk` → `index` in order (`--force` to re-clean, `--from chunk` to resume). It's deterministic: a rebuild reproduces `cleaned/` byte-identically and the scores in the table above exactly. That's *why* `laws/` is committed rather than re-fetched — the testset's ground truth is section IDs pinned to this snapshot of gov.uk, and live pages drift.
 
-> **Want a fresh corpus instead?** Run the fetchers (`cd ingestion && python fetch.py --discover && python fetch_nhs.py --discover && python dedupe.py --apply`) then rebuild. You'll get a working system — but **the testset will no longer be valid against it.** `expected_parent_ids` are positional section IDs, so different pages mean they point somewhere else, and the recorded numbers stop meaning anything. Re-ground the testset before trusting any score.
+> **Want a fresh corpus instead?** `python build.py --fetch` re-fetches both sources, dedupes, and rebuilds. It will warn you first, because **the testset stops being valid against a different corpus**: `expected_parent_ids` are positional section IDs, so changed pages mean they silently point elsewhere and the recorded numbers become meaningless. Re-ground the testset before trusting any score.
 
 ```bash
 # ask one question, end to end
@@ -198,6 +196,7 @@ Full detail — build pipeline, the two-grade refusal logic, why each branch is 
 ## Layout
 
 ```
+build.py       one command: clean -> chunk -> index (add --fetch to refresh)
 retrieval/     store.py (shared model/index/parents) + one file per pipeline
                + search.py, the dispatcher
 agent/         the LLM call sites: generate, grade, select, review

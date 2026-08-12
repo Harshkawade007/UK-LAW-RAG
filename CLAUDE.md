@@ -65,7 +65,11 @@ python sources.py                        # print seed counts per category
 The query-side scripts import packages (`from retrieval.search import ...`), so they must be run **from the project root**:
 
 ```bash
-python ingestion/clean.py    # NOTE: clean/chunk/index also run from ingestion/ (see above)
+# BUILD — one command from the project root, no API token needed
+python build.py                 # clean -> chunk -> index (from the committed laws/)
+python build.py --force         # re-clean every page
+python build.py --from chunk    # resume part-way
+python build.py --fetch         # fetch -> dedupe -> clean -> chunk -> index (prompts)
 
 python ask.py "Do students pay council tax?"              # end-to-end: retrieve + cited answer (crag)
 python ask.py --mode rerank "Do students pay council tax?"   # no grading, so it never declines
@@ -245,4 +249,5 @@ Two fetchers exist because the sources differ fundamentally:
 - **Filenames encode the path:** gov.uk `student-visa/family-members` → `student-visa__family-members.json` (slashes → `__`). Same scheme for NHS URLs. This is how re-runs know what already exists and skip it (idempotent unless `--force`).
 - **Re-running is always safe** — existing files are skipped, but their links are still followed during `--discover`.
 - **Rate limiting matters:** gov.uk allows 3000 req / 5 min; the fetchers sleep between requests (`RATE_LIMIT_DELAY`). Keep a real `User-Agent`. Don't remove these.
+- ⚠️ **`dedupe` must run BEFORE `clean` — the failure is silent.** `clean.py` skips any output that already exists and never prunes stale ones, so a page deleted from `laws/` by dedupe keeps its `cleaned/` copy, which `chunk.py` then indexes — reintroducing the exact duplicate dedupe removed, with no error. `build.py` enforces the order and prunes orphaned `cleaned/` files after any fetch; prefer it over running the scripts by hand.
 - **Always `dedupe.py --apply` after a fetch run.** A page can be discovered under multiple categories and saved twice; duplicates skew BM25 and retrieval. Dedupe keys on `source_url` first, then identical body content (redirect aliases), and keeps one copy in the most-specific category per `CATEGORY_PRIORITY` (banking ranks last as it absorbs general money pages).

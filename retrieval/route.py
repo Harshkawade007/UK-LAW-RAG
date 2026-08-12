@@ -1,39 +1,32 @@
 """
-retrieval/route.py
+Pipeline 4 of 5: rewrite the question first, then search several versions of it.
 
-PIPELINE 4 of 5 - query transformation + routing.
+    transform() -> a few rewritten queries
+                -> search and rerank each one on its own
+                -> merge the results with RRF -> full sections
 
-    transform() -> N branches -> rerank EACH branch against ITS OWN query
-                -> RRF across the branch rankings -> parents
+Every other stage only ever sees the words the user typed. If someone asks "can
+I work extra during reading week?" and the official page says "permitted
+working hours during term-time", the right chunk never even reaches the list of
+candidates - and no amount of reranking can rescue a chunk that was never
+found. The only place to fix a wording mismatch is BEFORE the search runs.
 
-Why it exists (what retrieval structurally cannot do):
-    Every stage downstream - dense, BM25, the cross-encoder - only ever sees
-    the words the user typed. If a student asks "can I work extra during
-    reading week?" and gov.uk writes "permitted working hours during
-    term-time", the right chunk never enters the candidate pool at all. No
-    amount of reranking recovers a chunk that was never retrieved. The only
-    place to fix a vocabulary mismatch is BEFORE the search.
+The same LLM call also splits a question that genuinely covers two topics into
+separate queries, so each topic gets its own search.
 
-    The same call also splits genuinely multi-domain questions into separate
-    sub-queries, which is multi-hop retrieval without an agent loop.
+Two things to be aware of before using this as a default:
 
-⚠️ OPT-IN, NOT THE DEFAULT - and measurably the weakest mode.
-   MRR@5 0.4486, hit-rate 25/37 vs rerank's 31/37, and ~5.3s per query. On
-   colloquial student phrasing the rewrite frequently moves the query AWAY
-   from corpus vocabulary or over-splits it.
+  * It scores worst of all five pipelines on the evaluation set. Casual
+    phrasing often gets rewritten away from the words actually used in the
+    corpus, or split up when it should not be.
+  * Its results are not repeatable. Even with the model's randomness turned all
+    the way down, the hosting provider gives no guarantee, so the same question
+    can produce a different number of rewrites from one run to the next - and
+    that changes the results. Never judge this pipeline from a single run.
 
-⚠️ IT IS NOT DETERMINISTIC. Despite temperature=0, DeepInfra makes no
-   determinism guarantee, so the same question yields a different number of
-   sub-queries run to run. Measured over 3 runs its MRR spans 0.6520-0.7078
-   (spread 0.0559) - bigger than most effects being measured. Verified on
-   "What can I not do on a Student visa?": 3 sub-queries -> rank 1, then 1
-   sub-query -> complete miss, then 3 sub-queries -> rank 1.
-   NEVER draw a conclusion about this pipeline from a single eval run.
-
-It is kept for two real reasons: crag.py escalates to it, and it is the ONLY
-pipeline that finds 2 of the testset questions at all ("Can my employer take
-money out of my wages?" is rank 4 here and a total miss everywhere else).
-A mode being weak on average says nothing about a specific query.
+It stays in the system because crag.py falls back to it when its own results
+look poor, and because it is the only pipeline that finds a couple of the test
+questions at all. Being weak on average says nothing about one specific query.
 """
 
 from retrieval.hybrid import hybrid_search, rrf_fuse
@@ -41,40 +34,36 @@ from retrieval.rerank import rerank
 from retrieval.store import expand_to_parents
 from retrieval.transform import transform
 
-# Cap on the merged child pool. Each branch contributes its own pool, so
-# without this the cross-encoder cost would grow linearly with the number of
-# sub-queries - the one stage we cannot afford to make longer.
+# Limit on the merged list of chunks. Every rewritten query adds its own
+# results, so without a cap the slowest stage (reranking) would get slower with
+# each extra query.
 MERGE_POOL = 30
 
 
 def branch_search(question: str, categories: list[str] | None,
                   pool: int) -> tuple[list[dict], list[dict]]:
-    """Run every branch and fuse them. Returns (child_hits, branches).
+    """Search every rewritten query and merge the results.
 
-    Exposed separately from run() so crag.py can report the branch list in its
-    trace without re-deriving it.
+    Returns (chunks, branches). A "branch" is one query plus its optional
+    category filter. It is kept separate from run() so crag.py can report the
+    branches it used without working them out again.
 
-    ⚠️ INVARIANT 1 - branch 0 is ALWAYS the original question with the
-    caller's own filter (normally none). Chunk categories are filing artifacts
-    rather than semantic labels, so a plausible-sounding route can point away
-    from the answer: "National Insurance: introduction" is filed under `visa`,
-    and Council Tax under `housing`. Keeping an unfiltered branch means routing
-    can only reorder results, never lose them. It also preserves the user's
-    original wording, which is what BM25 keys on if the rewrite is a bad one.
+    Three rules hold this together:
 
-    ⚠️ INVARIANT 2 - each branch is reranked against ITS OWN query, and only
-    then are branches fused. Reranking the merged pool against the original
-    question instead was measured to undo the whole point of rewriting: asking
-    "can I work extra during reading week?" pulls the correct "Student visa >
-    What you can and cannot do" into the pool via the rewrite, but scoring
-    that chunk against the user's colloquial wording ranks it below "Maximum
-    weekly working hours", which merely shares the words work/hours/week -
-    the very vocabulary gap the rewrite exists to close, reintroduced at the
-    last stage.
+    1. The FIRST branch is always the user's original question, unfiltered.
+       Categories describe where a page was filed, not what it is about, so a
+       sensible-looking filter can point away from the answer. Always keeping
+       an unfiltered branch means rewriting can reorder results but never lose
+       them, and the user's own wording still gets a fair search.
 
-    ⚠️ INVARIANT 3 - transform() returning [] is a VALID outcome, not an
-    error. A bad token, timeout or malformed JSON leaves exactly one branch,
-    which is precisely mode="rerank". Keep that fail-safe.
+    2. Each branch is reranked against ITS OWN query, and only then are the
+       branches merged. Reranking the merged list against the original question
+       would undo the whole point: the rewrite pulls the right section in, then
+       scoring it against the casual original pushes it back down again.
+
+    3. transform() returning an empty list is normal, not an error. A network
+       problem or a bad reply leaves exactly one branch - the original question
+       - which is simply the rerank pipeline. That fallback is deliberate.
     """
     branches = [{"query": question, "categories": categories}] + transform(question)
 
@@ -87,11 +76,10 @@ def branch_search(question: str, categories: list[str] | None,
         for hit in hits:
             by_id.setdefault(hit["child_id"], hit)
 
-    # RRF across branches for the same reason hybrid.py uses it across dense
-    # and BM25: it reads ranks only, so cross-encoder scores from different
-    # sub-queries combine without having to be calibrated against each other.
-    # It also keeps one branch from sweeping every slot, which is what lets a
-    # genuinely two-topic question return both topics.
+    # Merge with RRF for the same reason hybrid.py does: it only compares
+    # positions, so scores from different queries can be combined without
+    # having to make them mean the same thing. It also stops one branch taking
+    # every slot, which is what lets a two-topic question return both topics.
     fused = rrf_fuse(rankings)[:MERGE_POOL]
     merged = [{**by_id[cid], "score": score} for cid, score in fused if cid in by_id]
     return merged, branches
@@ -99,10 +87,11 @@ def branch_search(question: str, categories: list[str] | None,
 
 def run(question: str, top_k: int = 5, categories: list[str] | None = None,
         pool: int = 25) -> tuple[list[dict], dict]:
-    """The route pipeline. See search.py for the shared contract.
+    """Run the route pipeline. Same shape as every pipeline - see search.py.
 
-    Trace carries {"branches": [{query, categories}, ...]} - index 0 is always
-    the original question, so the UI can show what the rewrite actually did.
+    The trace holds {"branches": [{query, categories}, ...]}. The first entry
+    is always the original question, so the web UI can show what the rewrite
+    actually changed.
     """
     child_hits, branches = branch_search(question, categories, pool)
     return expand_to_parents(child_hits, top_k=top_k), {"branches": branches}

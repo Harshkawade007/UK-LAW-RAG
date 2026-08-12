@@ -1,46 +1,42 @@
 """
-eval/testset.py
+The test questions everything is scored against.
 
-The golden test questions: your baseline ruler. Every future retrieval change
-(hybrid search, reranking, routing) gets measured against this same set, so
-"we improved it" is a number, not a feeling.
+Every change to retrieval is measured against this same list, so "it got
+better" is a number rather than an impression. eval/run_eval.py reads it.
 
-Each question is grounded in a real page in the corpus - the fact it asks
-about is actually present at expected_parent_ids - so a wrong or missing
-answer is diagnosable as a genuine pipeline gap, not an unanswerable question.
+Each question is grounded in the corpus: the fact it asks about really is in
+the text at expected_parent_ids. That means a miss is a genuine gap in the
+search, not an unanswerable question. The few questions with no expected
+sections are there on purpose - the corpus genuinely cannot answer them, and
+the right behaviour is to decline rather than improvise.
 
-Fields:
-    question            - a real, plainly-phrased student question
-    category            - which of the 7 corpus categories it belongs to
-                          (a list, since a few genuinely span two)
-    expected_sources    - source_url(s) the answer lives on. Documentation
-                          only now - kept so a human can see which pages a
-                          question touches at a glance. NOT used for scoring.
-    expected_parent_ids - the exact chunks/parents.jsonl parent_id(s) that
-                          actually contain the answer. THIS is what scoring
-                          checks against.
+⚠️ These questions are tied to the exact corpus in laws/. The section ids below
+are positions within a page, so re-fetching the pages would shift them and the
+scores would quietly stop meaning anything. That is why laws/ is committed to
+the repository instead of being downloaded fresh.
 
-                          Why this replaced expected_sources for scoring:
-                          retrieval and chunking both operate at SECTION
-                          (parent) granularity, but page URLs can't see
-                          within a page. A page like private-renting has 47
-                          sections - scoring "did the right page come back"
-                          gives full credit whether the winning section was
-                          "Tenancy types" or "Antisocial behaviour". Verified
-                          on this exact testset: page-level MRR reported zero
-                          change from hybrid to rerank, even though reranking
-                          changed the top-5 PARENT set on 17 of 18 questions
-                          and moved the correct "If you've studied before"
-                          section from rank 3 to rank 1. The metric could not
-                          see either fact. See CLAUDE.md for the full case.
+Each entry has these fields:
 
-                          Each parent_id was verified by reading the actual
-                          section text in chunks/parents.jsonl, not guessed
-                          from the page title - see the per-question notes
-                          below for what was checked.
-    must_mention        - short substrings the final ANSWER should contain if
-                          generation is faithful to that source (case-insensitive)
-    notes               - why this question is here / what it's meant to catch
+    question            a plainly-phrased question, in the words a student
+                        would actually use
+    category            which of the seven categories it belongs to (a list,
+                        since a few genuinely span two)
+    expected_sources    the page URLs the answer lives on. For reference only -
+                        NOT used for scoring.
+    expected_parent_ids the exact sections that contain the answer. THIS is
+                        what gets scored.
+    must_mention        short phrases a faithful answer should contain
+    notes               why the question is here and what it is meant to catch
+
+Why scoring uses sections rather than page URLs: a single page can have dozens
+of sections that all share one URL, so scoring by URL gives full marks for
+finding any part of the right page. Measured on this very set, page-level
+scoring reported no change at all between two pipelines, while the actual
+sections returned changed on 17 of 18 questions - including moving the correct
+section from third place to first. The metric simply could not see it.
+
+Every section id here was checked by reading the actual text, not guessed from
+the page title. The per-question notes record what was checked.
 """
 
 TESTSET = [
@@ -60,12 +56,12 @@ TESTSET = [
         "expected_parent_ids": ["visa/student-visa#6"],
         "must_mention": [],
         "notes": (
-            "KNOWN COVERAGE GAP: #6 is the only section that even discusses work "
-            "hours, but it says hours 'depend on what you're studying' - the '20 "
-            "hours' figure is never actually stated on this page. Expect the model "
-            "to correctly decline to state a number rather than borrow the Skilled "
-            "Worker visa's 20h or invent one. Candidate for --discover / a targeted "
-            "re-fetch, not a retrieval fix - see CLAUDE.md."
+            "KNOWN GAP IN THE CORPUS: #6 is the only section that discusses work "
+            "hours at all, and it only says hours 'depend on what you're "
+            "studying' - the '20 hours' figure never appears on this page. The "
+            "right behaviour is to decline to state a number rather than borrow "
+            "one from another visa route. Fixing this needs more pages fetched, "
+            "not a better search."
         ),
     },
     {
@@ -89,10 +85,10 @@ TESTSET = [
         ],
         "must_mention": [],
         "notes": (
-            "Multi-hop: the switching mechanics live on the SKILLED WORKER page "
-            "('Switch to this visa' #72, 'Eligibility' #73 - which explicitly "
-            "covers the Student-visa-switching case), not on student-visa itself. "
-            "Good candidate for Week 3 agent test."
+            "Needs two hops: the switching rules live on the SKILLED WORKER page "
+            "('Switch to this visa' #72 and 'Eligibility' #73, which explicitly "
+            "covers switching from a Student visa), not on the student-visa page "
+            "the question sounds like it is about."
         ),
     },
 
@@ -210,11 +206,10 @@ TESTSET = [
         "expected_parent_ids": ["education/student-finance#7"],
         "must_mention": [],
         "notes": (
-            "This is the exact section chunk.py splits into 3 overlapping "
-            "children (parent #7, 'If you've studied before') - good regression "
-            "check that the split didn't break retrieval of this fact, and now "
-            "the metric can actually see whether rank moved (it does: 3 -> 1 "
-            "after reranking - see CLAUDE.md)."
+            "Section #7 ('If you've studied before') is one that chunk.py splits "
+            "into three overlapping chunks, so this checks the split did not "
+            "break retrieval of the fact. It also shows section-level scoring "
+            "working: reranking moves this from third place to first."
         ),
     },
 
@@ -275,20 +270,21 @@ TESTSET = [
     },
 
     # =====================================================================
-    # Batch 2 (added 2026-08-05) - deliberately HARDER than batch 1.
+    # Batch 2 - deliberately harder than the questions above.
     #
-    # Why these exist: batch 1 was written close to gov.uk's own wording, so
-    # 10 of 17 questions already sat at rank 1 and the set could no longer
-    # tell a real improvement from noise. That became concrete when `route`
-    # was measured across 3 runs and its MRR swung 0.6520-0.7078 - a spread
-    # WIDER than the differences we were drawing conclusions from.
+    # The first batch was written using wording close to gov.uk's own, so most
+    # of those questions already came back in first place. That left no room
+    # to tell a genuine improvement from random variation - one pipeline was
+    # measured swinging more between repeat runs than the differences being
+    # compared.
     #
-    # So these are written the way a student would actually type them
-    # ("my student visa runs out next month...", "my new boss wants proof"),
-    # not the way gov.uk writes headings. Several are deliberate traps:
-    # negations, near-duplicate vocabulary with opposite answers, and
-    # entity-confusion cases. Every parent_id below was verified by reading
-    # the section text in chunks/parents.jsonl.
+    # So these are written the way a student would actually type them ("my
+    # student visa runs out next month...", "my new boss wants proof"), rather
+    # than the way gov.uk writes its headings. Several are traps on purpose:
+    # negations, near-identical wording with opposite answers, and questions
+    # that look like they are about one thing but are answered by another.
+    #
+    # Every section id below was checked by reading the actual text.
     # =====================================================================
 
     # --- visa: Graduate route -------------------------------------------------
@@ -521,7 +517,11 @@ TESTSET = [
         ),
     },
 
-    # --- out-of-corpus: tests honest refusal, not retrieval -------------------
+    # --- questions the corpus cannot answer ----------------------------------
+    # These have no expected sections, so they are excluded from the scores.
+    # They are here to check the system declines rather than improvising an
+    # answer out of whatever text happens to be closest.
+    # -------------------------------------------------------------------------
     {
         "question": "Can I bring my pet dog with me when I move to the UK to study?",
         "category": ["visa"],
@@ -529,9 +529,9 @@ TESTSET = [
         "expected_parent_ids": [],
         "must_mention": [],
         "notes": (
-            "Deliberately NOT covered by any seed page. The correct behaviour "
-            "is an honest 'not confident' answer, not a confident guess. "
-            "Tests the faithfulness rule, not retrieval."
+            "Deliberately not covered by any page in the corpus. The right "
+            "outcome is an honest 'I don't have anything on this', not a "
+            "confident guess assembled from nearby visa sections."
         ),
     },
     {
@@ -541,12 +541,11 @@ TESTSET = [
         "expected_parent_ids": [],
         "must_mention": [],
         "notes": (
-            "Second refusal case, added 2026-08-05. Verified absent: zero "
-            "chunks in the corpus mention university rankings or league "
-            "tables. Differs from the pet-dog case in being a plausible "
-            "STUDENT question about a topic gov.uk simply does not rank on - "
-            "so the system must decline rather than improvise from whatever "
-            "education-category text is nearest."
+            "Checked: not a single chunk in the corpus mentions university "
+            "rankings or league tables. Unlike the pet-dog question this is a "
+            "very plausible student question - it is just about something "
+            "gov.uk does not publish an opinion on, so the only honest answer "
+            "is to say so."
         ),
     },
 ]

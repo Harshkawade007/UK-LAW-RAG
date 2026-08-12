@@ -1,28 +1,25 @@
 """
-dedupe.py
+Finds and deletes pages that were downloaded more than once.
 
-De-duplicates the laws/ corpus produced by fetch.py and fetch_nhs.py.
+The fetchers can save the same page under two different categories - running
+one category on its own starts a fresh crawl and rediscovers pages already
+stored elsewhere. Duplicates genuinely hurt a search system: the same text can
+fill several of the top result slots, and it distorts the keyword search and
+the evaluation scores. So this should be run after any fetch.
 
-Why this exists:
-    Both fetchers can save the same page under more than one category. e.g.
-    running `python fetch.py --category banking` in a separate process starts
-    a fresh crawl and re-discovers pages already stored under housing or
-    tax_ni, writing a second copy. Duplicate pages hurt a RAG system - the
-    same text can fill several of your top-k retrieval slots, and it skews
-    BM25 weighting and eval scores. So run this after any fetch.
+Two pages count as the same page if either:
 
-How a page's identity is decided:
-    1. source_url  - the same URL is the same page, wherever it was saved.
-    2. body content - as a backstop, byte-identical bodies under different
-       URLs (redirect aliases) are collapsed too.
+  1. they have the same source_url, or
+  2. their text is byte-for-byte identical - which catches the case where one
+     URL redirects to another.
 
-When a page exists in several categories we keep ONE copy, in the
-most-specific category (see CATEGORY_PRIORITY), and delete the rest.
+When a page exists in several categories, one copy is kept in the most specific
+category (see CATEGORY_PRIORITY below) and the rest are deleted.
 
 Usage:
-    python dedupe.py              # dry run - just report what WOULD be removed
-    python dedupe.py --apply      # actually delete the duplicate files
-    python dedupe.py --laws-dir path/to/laws --apply
+
+    python dedupe.py              show what WOULD be removed, change nothing
+    python dedupe.py --apply      actually delete the duplicates
 """
 
 import json
@@ -33,23 +30,25 @@ from pathlib import Path
 
 DEFAULT_LAWS_DIR = Path(__file__).parent.parent / "laws"
 
-# Earlier = higher priority = the copy we keep when one page appears in
-# several categories. Ordered specific -> general; "banking" is last because
-# it tends to absorb general money/benefits pages that have a more specific
-# home elsewhere. Re-order this if your project's category ownership differs.
+# Which copy to keep when a page appears in several categories: the one
+# nearest the front of this list wins. Ordered most specific to most general.
+# "banking" is last because it tends to soak up general money and benefits
+# pages that have a better home elsewhere.
 CATEGORY_PRIORITY = [
     "visa", "education", "nhs", "housing", "employment", "tax_ni", "banking",
 ]
 
 
 def priority(category: str) -> int:
+    """Position in CATEGORY_PRIORITY. Lower means more specific, so it wins."""
     try:
         return CATEGORY_PRIORITY.index(category)
     except ValueError:
-        return len(CATEGORY_PRIORITY)  # unknown categories rank last
+        return len(CATEGORY_PRIORITY)  # unrecognised categories come last
 
 
 def load(path: Path) -> dict | None:
+    """Read one page, returning None if the file cannot be read."""
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
@@ -58,28 +57,34 @@ def load(path: Path) -> dict | None:
 
 
 def body_hash(body: str) -> str:
+    """A short fingerprint of the text, so identical pages can be spotted."""
     return hashlib.md5((body or "").strip().encode("utf-8")).hexdigest()
 
 
 def keep_rank(record: tuple[Path, dict]) -> tuple:
-    """Sort key for choosing which copy to KEEP - lowest sorts first (winner)."""
+    """Decides which copy to keep. Sorting by this puts the winner first.
+
+    The tests are applied in order until one of them settles it.
+    """
     path, data = record
     body = data.get("body", "") or ""
     return (
-        priority(data.get("category", "")),   # most-specific category wins
-        -len(body),                            # then the most complete body
-        len(data.get("source_url", "") or ""), # then shortest (canonical) url
-        str(path),                             # deterministic final tiebreak
+        priority(data.get("category", "")),    # 1. most specific category
+        -len(body),                            # 2. then the most complete text
+        len(data.get("source_url", "") or ""), # 3. then the shortest URL
+        str(path),                             # 4. then the filename, so the
+                                               #    result is never random
     )
 
 
 def resolve_group(records: list[tuple[Path, dict]]) -> tuple[tuple[Path, dict], list[tuple[Path, dict]]]:
-    """Given duplicate records, return (keeper, [losers])."""
+    """From a group of duplicates, return (the one to keep, the ones to delete)."""
     ordered = sorted(records, key=keep_rank)
     return ordered[0], ordered[1:]
 
 
 def dedupe(laws_dir: Path, apply: bool) -> None:
+    """Find duplicates, print a report, and delete them if `apply` is set."""
     files = sorted(laws_dir.rglob("*.json"))
     records: list[tuple[Path, dict]] = []
     for f in files:
@@ -92,7 +97,7 @@ def dedupe(laws_dir: Path, apply: bool) -> None:
     to_remove: list[tuple[Path, dict]] = []
     kept_records: list[tuple[Path, dict]] = []
 
-    # --- Pass 1: same source_url -----------------------------------------
+    # --- Pass 1: pages sharing a source_url are the same page ------------
     by_url: dict[str, list[tuple[Path, dict]]] = defaultdict(list)
     no_url: list[tuple[Path, dict]] = []
     for rec in records:
@@ -108,7 +113,7 @@ def dedupe(laws_dir: Path, apply: bool) -> None:
         kept_records.append(keeper)
         to_remove.extend(losers)
 
-    # --- Pass 2: identical body under different URLs (aliases) ------------
+    # --- Pass 2: identical text under different URLs (redirects) ---------
     by_body: dict[str, list[tuple[Path, dict]]] = defaultdict(list)
     for rec in kept_records:
         by_body[body_hash(rec[1].get("body", ""))].append(rec)
@@ -122,7 +127,7 @@ def dedupe(laws_dir: Path, apply: bool) -> None:
         survivors.append(keeper)
         to_remove.extend(losers)
 
-    # --- Report -----------------------------------------------------------
+    # --- Report what was found -------------------------------------------
     if not to_remove:
         print("\nNo duplicates found. Corpus is clean.")
         return

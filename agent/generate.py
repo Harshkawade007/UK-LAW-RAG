@@ -1,27 +1,28 @@
 """
-agent/generate.py
+Writes the final answer: question + retrieved sections -> a cited reply.
 
-The generation half of the RAG pipeline: question + retrieved parents -> a
-grounded, cited answer.
+This is the "G" in RAG (retrieval-augmented generation). The retrieved sections
+are put into the prompt and the model is told to answer using only those, with
+a [1] [2] style citation for anything it claims.
 
-Uses DeepInfra, which is OpenAI-API-compatible, so we drive it with the
-standard `openai` SDK pointed at DeepInfra's endpoint. The model is a single
-constant below - swap it freely (Qwen2.5-72B for more quality, an 8B model
-for cheap iteration).
+It can also refuse. If the grader (agent/grade.py) judged the sections
+irrelevant, this returns a short "I don't have anything that answers this"
+instead of writing an answer. That check costs nothing, because refusing means
+no LLM call is made at all.
 
-This is the Week-1 "dumb baseline" generator: stuff the retrieved sections
-into the prompt and force the model to answer only from them, with citations.
-Structured claim-by-claim output (roadmap Day 9) comes later.
+The answers come from DeepInfra, which speaks the same API as OpenAI, so the
+standard `openai` package is used with a different base URL. The model is the
+MODEL constant below and can be swapped freely.
 
-The API token is read from DEEPINFRA_TOKEN (put it in a .env file at the
-project root - see .env.example).
+The API token is read from DEEPINFRA_TOKEN. Put it in a .env file in the
+project root.
 """
 
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
 
-load_dotenv()  # load .env at the project root, if present
+load_dotenv()  # reads .env in the project root, if there is one
 
 MODEL = "meta-llama/Llama-3.3-70B-Instruct"
 BASE_URL = "https://api.deepinfra.com/v1/openai"
@@ -45,7 +46,7 @@ def _client() -> OpenAI:
     token = os.environ.get("DEEPINFRA_TOKEN")
     if not token:
         raise SystemExit(
-            "TOKEN is not set."
+            "DEEPINFRA_TOKEN is not set. Add it to a .env file in the project root."
         )
     return OpenAI(api_key=token, base_url=BASE_URL)
 
@@ -66,6 +67,7 @@ REFUSAL = (
 
 
 def _format_sources(parents: list[dict]) -> str:
+    """Lay the sections out as a numbered list for the prompt."""
     return "\n\n".join(
         f"[{i}] {p['breadcrumb']} ({p['source_url']})\n{p['text']}"
         for i, p in enumerate(parents, 1)
@@ -73,6 +75,7 @@ def _format_sources(parents: list[dict]) -> str:
 
 
 def _cited(parents: list[dict]) -> list[dict]:
+    """The same sections as a short list to show under the answer."""
     return [
         {"n": i, "breadcrumb": p["breadcrumb"], "url": p["source_url"]}
         for i, p in enumerate(parents, 1)
@@ -81,29 +84,28 @@ def _cited(parents: list[dict]) -> list[dict]:
 
 def generate_answer(question: str, parents: list[dict], model: str = MODEL,
                     temperature: float = 0.2, grade: str | None = None) -> dict:
-    """Return {answer, sources, refused} grounded in the retrieved sections.
+    """Write an answer from the retrieved sections, or decline to.
 
-    `grade` is agent/grade.py's verdict on THESE sections - retrieval/search.py
-    reports it as `final_grade` in the crag/agentic trace. When it says
-    "irrelevant" this declines instead of answering.
+    Returns {"answer": str, "sources": list, "refused": bool}.
 
-    Why the grade has to be plumbed this far:
-        Retrieval always returns its top-k, however bad. Asked "can I bring my
-        pet dog to the UK?" the corpus has nothing, so five unrelated housing
-        and visa sections come back anyway - and a model told to answer from
-        sources will dutifully assemble something confident-looking out of
-        them, with real gov.uk links underneath. The grader already detects
-        this (zero false positives across two full eval runs); until it was
-        wired to here, its verdict was recorded in the trace and ignored.
+    `grade` is agent/grade.py's verdict on these particular sections. Only the
+    crag and agentic pipelines produce one; the others pass None and always
+    answer.
 
-        Declining is the whole point of a legal assistant. A wrong answer a
-        student acts on is worse than no answer.
+    Why the grade matters here: search always returns its best few results, no
+    matter how bad they are. Asked "can I bring my pet dog to the UK?" - which
+    the corpus says nothing about - five unrelated visa and housing sections
+    come back anyway, and a model told to answer from sources will happily
+    assemble something confident-sounding out of them, with real government
+    links underneath. For a legal assistant that is the worst possible failure,
+    because a student might act on it.
 
-    Only "irrelevant" refuses. "partial" means some section genuinely helps,
-    and the prompt below already tells the model to say what is missing.
+    Only "irrelevant" causes a refusal. "partial" still answers, because some
+    section genuinely helps and the prompt already tells the model to say what
+    is missing.
 
-    Refusing costs nothing - no LLM call is made. The sections are still
-    returned, honestly labelled as the closest matches rather than as support.
+    Refusing is free: no LLM call is made. The sections are still returned, but
+    labelled as the closest matches rather than as evidence.
     """
     if not parents:
         return {"answer": NOTHING_FOUND, "sources": [], "refused": True}

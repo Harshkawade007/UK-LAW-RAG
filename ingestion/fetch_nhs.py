@@ -1,15 +1,19 @@
 """
-fetch_nhs.py
+Downloads NHS pages from nhs.uk and saves them to laws/nhs/
 
-NHS content lives on nhs.uk, which has no Content API like gov.uk - it's a
-plain website. So this scrapes the HTML instead, extracting the main article
-text and writing the SAME JSON shape fetch.py produces, into laws/nhs/, so
-everything downstream (cleaning, chunking) treats gov.uk and NHS pages alike.
+There are two fetchers because the two sites work differently. gov.uk has a
+Content API that hands over clean JSON; nhs.uk is an ordinary website, so this
+one reads the HTML and picks the article text out of it with BeautifulSoup.
 
-    python fetch_nhs.py                # scrape the seed URLs
-    python fetch_nhs.py --discover     # + follow in-page links (allowlisted)
+The files it writes have exactly the same shape as fetch.py's, so cleaning and
+chunking can treat both sites identically.
 
-Safe to re-run: skips files that already exist unless you pass --force.
+    python fetch_nhs.py                 just the seed URLs in sources.py
+    python fetch_nhs.py --discover      also follow links to find more pages
+    python fetch_nhs.py --force         re-download pages already saved
+
+Run it from inside the ingestion/ folder. Re-running is safe: pages already on
+disk are skipped unless --force is passed.
 """
 
 import re
@@ -27,10 +31,10 @@ from sources import NHS_SOURCES, NHS_ALLOWED_PREFIXES
 
 NHS_DIR = Path(__file__).parent.parent / "laws" / "nhs"
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; uk-student-legal-rag/1.0; portfolio project)"}
-RATE_LIMIT_DELAY = 0.5
+RATE_LIMIT_DELAY = 0.5   # pause between requests, so as not to hammer the site
 BASE = "https://www.nhs.uk"
 
-# Content blocks inside <main> we don't want as body text.
+# Parts of the page that are navigation or furniture rather than content.
 DROP_SELECTORS = [
     "nav", "form", "button", "figure",
     ".nhsuk-breadcrumb", ".nhsuk-pagination", ".nhsuk-back-link",
@@ -40,12 +44,17 @@ DROP_SELECTORS = [
 
 
 def url_to_filename(url: str) -> str:
-    """https://www.nhs.uk/nhs-services/gps/how-to-register/ -> nhs-services__gps__how-to-register.json"""
+    """Turn a URL into a filename, the same way fetch.py does.
+
+    https://www.nhs.uk/nhs-services/gps/how-to-register/
+        -> nhs-services__gps__how-to-register.json
+    """
     path = urlparse(url).path.strip("/")
     return (path.replace("/", "__") or "index") + ".json"
 
 
 def fetch_html(url: str) -> str | None:
+    """Download one page. Returns None if the request failed."""
     try:
         resp = requests.get(url, headers=HEADERS, timeout=20)
         resp.raise_for_status()
@@ -56,6 +65,12 @@ def fetch_html(url: str) -> str | None:
 
 
 def parse_jsonld(soup: BeautifulSoup) -> dict:
+    """Read the page's own description of itself, if it has one.
+
+    Most NHS pages include a hidden block of JSON holding the real title, a
+    summary, and when the page was last reviewed - better metadata than
+    guessing from the HTML.
+    """
     tag = soup.find("script", type="application/ld+json")
     if not tag or not tag.string:
         return {}
@@ -67,13 +82,17 @@ def parse_jsonld(soup: BeautifulSoup) -> dict:
 
 
 def extract_main(soup: BeautifulSoup) -> str:
-    """Pull the readable article text out of <main id='maincontent'>, keeping
-    heading structure as <h2> markers so chunking can use it later."""
+    """Pull the article text out of the page.
+
+    Headings are kept as <h2> markers because chunk.py later splits pages into
+    sections on exactly those - so throwing them away here would collapse each
+    page into one undivided lump.
+    """
     main = soup.find("main", id="maincontent") or soup.find("main")
     if main is None:
         return ""
 
-    # Remove chrome/navigation noise before reading text.
+    # Strip out menus, buttons and other furniture before reading the text.
     for sel in DROP_SELECTORS:
         for el in main.select(sel):
             el.decompose()
@@ -93,7 +112,12 @@ def extract_main(soup: BeautifulSoup) -> str:
 
 
 def in_scope(url: str) -> bool:
-    """True if the URL is an nhs.uk page under an allowed section prefix."""
+    """Is this a page worth downloading?
+
+    Only nhs.uk, and only inside the allowed sections. That keeps the crawl on
+    "how to use the NHS" pages and out of the enormous medical conditions
+    encyclopedia, which has nothing to do with this project.
+    """
     p = urlparse(url)
     if p.netloc and p.netloc not in ("www.nhs.uk", "nhs.uk"):
         return False
@@ -101,6 +125,7 @@ def in_scope(url: str) -> bool:
 
 
 def linked_urls(soup: BeautifulSoup, current_url: str) -> list[str]:
+    """List the in-scope pages this one links to."""
     main = soup.find("main", id="maincontent") or soup.find("main")
     if main is None:
         return []
@@ -113,6 +138,7 @@ def linked_urls(soup: BeautifulSoup, current_url: str) -> list[str]:
 
 
 def save_page(url: str, soup: BeautifulSoup) -> bool:
+    """Write one page to disk. Returns True if it had real content to save."""
     body = extract_main(soup)
     if not body or len(body) < 100:
         print(f"    skip (thin body): {url}")
@@ -137,6 +163,7 @@ def save_page(url: str, soup: BeautifulSoup) -> bool:
 
 
 def crawl(discover: bool, max_depth: int, max_pages: int, force: bool):
+    """Work outwards from the seed URLs, a layer of links at a time."""
     queue = deque((u.rstrip("/") + "/", 0) for u in NHS_SOURCES)
     seen = set(u for u, _ in queue)
     saved = 0
@@ -149,6 +176,7 @@ def crawl(discover: bool, max_depth: int, max_pages: int, force: bool):
         soup = None
         if out_file.exists() and not force:
             print(f"  have: {url}")
+            # Already saved, but its links may still lead somewhere new.
             if discover and depth < max_depth:
                 html = fetch_html(url)
                 soup = BeautifulSoup(html, "html.parser") if html else None
@@ -171,6 +199,20 @@ def crawl(discover: bool, max_depth: int, max_pages: int, force: bool):
     print(f"[nhs] saved {saved} new page(s)")
 
 
+def run(force: bool = False, discover: bool = False,
+        max_depth: int = 2, max_pages: int = 120) -> int:
+    """Download NHS pages into laws/nhs/. Returns how many pages are there now.
+
+    This is the function other code calls - ingestion/build.py uses it
+    directly, and main() below is just the command-line wrapper around it.
+    """
+    crawl(discover, max_depth, max_pages, force)
+
+    total = sum(1 for _ in NHS_DIR.glob("*.json"))
+    print(f"\nDONE. laws/nhs/ now holds {total} page(s).")
+    return total
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--force", action="store_true", help="re-scrape even if file exists")
@@ -179,10 +221,7 @@ def main():
     parser.add_argument("--max-pages", type=int, default=120)
     args = parser.parse_args()
 
-    crawl(args.discover, args.max_depth, args.max_pages, args.force)
-
-    total = sum(1 for _ in NHS_DIR.glob("*.json"))
-    print(f"\nDONE. laws/nhs/ now holds {total} page(s).")
+    run(args.force, args.discover, args.max_depth, args.max_pages)
 
 
 if __name__ == "__main__":

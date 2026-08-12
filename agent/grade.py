@@ -1,43 +1,35 @@
 """
-agent/grade.py
+Grades search results: do these sections actually answer the question?
 
-Retrieval grading: the "C" in CRAG (Corrective RAG). One cheap LLM call that
-reads the question alongside what retrieval actually returned and judges
-whether it answers the question.
+One cheap LLM call that reads the question next to the sections that came back
+and returns one of three verdicts - relevant, partial or irrelevant - with a
+one-line reason.
 
-Why this exists (what a similarity score structurally cannot do):
-    Every scoring stage in this pipeline - dense cosine, BM25, even the
-    cross-encoder - measures how CLOSELY a chunk matches a question. None of
-    them measure whether the chunk ANSWERS it. Those are different things, and
-    on this corpus they come apart badly.
+This is the "C" in Corrective RAG, and it does something no score can. Every
+score in this system measures how CLOSELY a section matches the question; none
+of them measure whether it ANSWERS the question. On the evaluation set, correct
+results and complete misses score in the same range, so there is no threshold
+that separates them.
 
-    Measured on the full testset, the cross-encoder's top-1 score does not
-    predict correctness at all:
+The example that makes it obvious: asked "Does my landlord have to protect my
+deposit?", the top result is a section called "Holding deposits" that says a
+landlord does NOT have to protect a holding deposit. It scores near the top of
+the whole test set because it shares almost every word with the question - and
+it answers the opposite question. A model that reads the text spots that
+immediately.
 
-        correct at rank 1 : scores 6.15 - 9.57
-        complete miss     : scores 6.22 - 9.34
+Two things read the verdict:
+  * retrieval/crag.py, which retries with a different pipeline unless the
+    verdict is "relevant"
+  * agent/generate.py, which declines to answer when it is "irrelevant"
 
-    The worked example is "Does my landlord have to protect my deposit?".
-    Retrieval returns `tenancy-deposit-protection#4` "Holding deposits" at
-    rank 1 with a score of 9.34 - near the highest in the whole set - and that
-    section says "Your landlord does NOT have to protect a holding deposit."
-    It is lexically near-identical to the question and semantically adjacent,
-    so it scores brilliantly while answering the opposite question.
+If the call fails for any reason this returns "relevant", meaning "carry on as
+normal". A broken grader must leave the system exactly as it was without the
+grader, never break it.
 
-    No threshold separates that from a genuine hit. But a model that READS the
-    text can see it. That is the entire reason this file makes an LLM call
-    instead of comparing a float.
-
-What happens with the grade:
-    retrieval/search.py's "crag" mode escalates to the (more expensive) route
-    pipeline only when this returns something other than "relevant" - so the
-    rewrite cost is paid on the queries that need it rather than all of them.
-
-Failure is not an error:
-    Any exception, timeout or malformed reply returns "relevant", which means
-    "do not escalate" and leaves the caller with plain rerank results. A
-    broken grader must degrade the system to its previous behaviour, never
-    break it. Same contract as retrieval/transform.py.
+One honest limitation: the verdict is not perfectly repeatable. The same
+question with the same sections can occasionally come back with a different
+grade, so a refusal is a strong signal rather than a guarantee.
 """
 
 import json
@@ -49,15 +41,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Same small model as retrieval/transform.py: this is a judgement call on a
-# few hundred words, not reasoning, and it sits in front of every query.
+# A small, cheap model, same as retrieval/transform.py. This is a short
+# judgement call, not reasoning, and it runs on every crag query.
 MODEL = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 BASE_URL = "https://api.deepinfra.com/v1/openai"
 
 TIMEOUT_S = 15
 GRADES = ("relevant", "partial", "irrelevant")
-# Enough of each section for the model to tell what it actually says, without
-# sending five full parent sections (which would be slow and mostly wasted).
+
+# How much of each section to send. Enough for the model to see what it says,
+# without paying to send five full sections of text.
 SNIPPET_CHARS = 300
 
 SYSTEM_PROMPT = """You judge whether retrieved reference sections actually ANSWER a \
@@ -100,7 +93,7 @@ def _client() -> OpenAI:
 
 
 def _format_sections(parents: list[dict]) -> str:
-    """Compact view of the retrieved sections - breadcrumb plus a snippet."""
+    """Short view of each section: its heading plus the first few lines."""
     out = []
     for i, p in enumerate(parents, 1):
         text = " ".join((p.get("text") or "").split())[:SNIPPET_CHARS]
@@ -111,12 +104,11 @@ def _format_sections(parents: list[dict]) -> str:
 def grade_retrieval(question: str, parents: list[dict], model: str = MODEL) -> dict:
     """Judge whether these sections answer the question.
 
-    Returns {"grade": one of GRADES, "reason": str}. Returns "relevant" on any
-    failure so the caller falls through to its existing behaviour.
+    Returns {"grade": one of GRADES, "reason": str}. On any failure it returns
+    "relevant", so the caller simply carries on as it would have anyway.
     """
     if not parents:
-        # Nothing came back at all - that is unambiguously bad, and needs no
-        # LLM call to establish.
+        # Nothing came back at all. That is clearly bad and needs no LLM call.
         return {"grade": "irrelevant", "reason": "no sections retrieved"}
 
     user = f"Question: {question}\n\nRetrieved sections:\n{_format_sections(parents)}"
@@ -141,5 +133,5 @@ def grade_retrieval(question: str, parents: list[dict], model: str = MODEL) -> d
             return {"grade": "relevant", "reason": f"unknown grade {grade!r}"}
         return {"grade": grade, "reason": str(data.get("reason", "")).strip()}
     except Exception as exc:
-        # Degrade to "do not escalate" rather than taking retrieval down.
+        # Fall back to "carry on as normal" rather than breaking the search.
         return {"grade": "relevant", "reason": f"grader unavailable ({type(exc).__name__})"}

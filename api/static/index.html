@@ -1,4 +1,15 @@
 <!doctype html>
+<!--
+  The whole web interface: one file, no build step, no frameworks.
+
+  It talks to two endpoints in api/main.py:
+    POST /chat     ask one question with one pipeline
+    POST /compare  run all five pipelines and rate what each one found
+
+  Beyond the answer itself, it shows every section the search returned with its
+  score, and what the pipeline decided along the way - which is the only way to
+  see from the outside how the pipelines differ.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -130,9 +141,9 @@
 
   <div id="out"></div>
 
-  <!-- Explanation panel: separate from the search flow on purpose. Runs every
-       pipeline on the same question and shows an LLM review of what each found,
-       which is the only way the per-query differences between them are visible. -->
+  <!-- Comparison panel. Kept separate from the normal search on purpose: it
+       runs every pipeline on the same question and has an LLM rate what each
+       one found, which is slow and costs credits, so it only runs on request. -->
   <div class="panel cmp-panel">
     <h2 style="margin-bottom:.4rem">Compare all pipelines</h2>
     <p class="hint" style="margin:0 0 .75rem">
@@ -175,9 +186,8 @@ function render(d) {
   const tr = d.trace;
   if (tr) {
     html += `<div class="trace">`;
-    // crag: show how retrieval was graded and whether that forced a retry.
-    // Without this, crag looks identical to rerank from the outside.
-    // agentic: which pipeline the selector chose, and why.
+    // What the pipeline decided. Without this, crag would look exactly like
+    // rerank from the outside - same answer, no sign of the check behind it.
     if (tr.selected) {
       html += `<b>Agent chose</b> <span class="grade good">${esc(tr.selected)}</span>
         <div class="reason">${esc(tr.select_reason || "")}</div>`;
@@ -188,8 +198,8 @@ function render(d) {
         <span class="grade ${ok ? "good" : "bad"}">${esc(tr.grade)}</span>
         ${tr.escalated ? `<span class="tag">re-searched</span>` : ""}
         <div class="reason">${esc(tr.grade_reason || "")}</div>`;
-      // Escalating changed the sections, so the verdict on them changed too -
-      // and it is the SECOND verdict that decides whether an answer is written.
+      // The retry changed the sections, so they were graded again. It is this
+      // second grade that decides whether an answer gets written at all.
       if (tr.escalated && tr.final_grade) {
         const ok2 = tr.final_grade === "relevant";
         html += `<b>Re-graded after re-search</b>
@@ -197,7 +207,7 @@ function render(d) {
           <div class="reason">${esc(tr.final_grade_reason || "")}</div>`;
       }
     }
-    // route (or crag after escalating): the queries actually searched.
+    // The queries that were actually searched, when the question was rewritten.
     if (tr.branches && tr.branches.length) {
       html += `${tr.grade ? "" : "<b>Searched " + tr.branches.length + " queries</b>"}<ul>`;
       tr.branches.forEach((b, i) => {

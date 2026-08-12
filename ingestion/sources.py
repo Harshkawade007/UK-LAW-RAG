@@ -1,13 +1,18 @@
 """
-sources.py
+The list of pages to start downloading from. No code here, just data.
 
-Hand-picked seed pages for each law category.
-These are gov.uk PATHS (not full URLs) - fetch.py turns them into
-API calls like https://www.gov.uk/api/content/<path>
+SOURCES holds gov.uk PATHS rather than full URLs, because fetch.py turns each
+one into an API call: https://www.gov.uk/api/content/<path>
 
-These seeds are just the STARTING points. Run `python fetch.py --discover`
-to follow each page's related links and auto-grow the corpus well beyond
-this list. Re-running is safe - it won't re-fetch what you already have.
+NHS_SOURCES holds full nhs.uk URLs, because fetch_nhs.py fetches those pages
+directly.
+
+These are only STARTING points. Running the fetchers with --discover follows
+the links on each page and grows the collection well beyond this list.
+
+Run this file on its own to see how many seeds there are per category:
+
+    python sources.py
 """
 
 SOURCES = {
@@ -109,12 +114,8 @@ SOURCES = {
 }
 
 # ---------------------------------------------------------------------------
-# NHS sources.
-# NHS content lives on nhs.uk (a plain website, no Content API), so it needs
-# the separate HTML scraper in fetch_nhs.py rather than fetch.py.
-# These are full URLs. The scraper crawls related links but stays inside
-# NHS_ALLOWED_PREFIXES (below) so it never wanders into the /conditions/
-# medical encyclopedia.
+# NHS pages. These need fetch_nhs.py rather than fetch.py, because nhs.uk is an
+# ordinary website with no API - so its pages have to be read from HTML.
 # ---------------------------------------------------------------------------
 NHS_SOURCES = [
     "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",
@@ -130,8 +131,9 @@ NHS_SOURCES = [
     "https://www.nhs.uk/nhs-app/",
 ]
 
-# Only crawl links whose path starts with one of these. Keeps the scraper on
-# "how to use the NHS" content and out of the clinical conditions A-Z.
+# Only follow links that start with one of these. This keeps the crawl on "how
+# to use the NHS" pages and out of the enormous A-Z of medical conditions,
+# which is not what this project is about.
 NHS_ALLOWED_PREFIXES = (
     "/nhs-services/",
     "/using-the-nhs/",

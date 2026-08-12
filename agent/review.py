@@ -1,36 +1,32 @@
 """
-agent/review.py
+Runs one question through all five pipelines and has an LLM review the results.
 
-Pipeline comparison: run the same question through every retrieval pipeline and
-have an LLM review what each one actually found.
+This powers the "compare" panel in the web UI. It is an explanation tool, not
+part of normal searching: it takes around 40 seconds and it costs API credits,
+so it only runs when someone asks for it.
 
-Why this exists:
-    The five pipelines are not ranked versions of each other - measured over
-    the 39-question testset, the best single pipeline is beaten on 11 of 37
-    questions, sometimes by the cheapest mode and sometimes by the one that
-    scores worst overall. Aggregate MRR hides that completely.
+Why it exists: the five pipelines are not simply better and better versions of
+each other. The best one overall still loses on roughly a third of the test
+questions, sometimes to the cheapest pipeline and sometimes to the one that
+scores worst on average. An average score hides that completely. This shows the
+difference for one question at a time.
 
-    This module makes the difference visible for ONE question at a time: same
-    query, five pipelines, and a section-by-section verdict on what each
-    retrieved. It is an explanation tool, not part of the search path.
+How the reviewing works: the pipelines return heavily overlapping results -
+typically 10 to 18 distinct sections across all five, not 25. So every DISTINCT
+section is rated once, from 0 to 3, in a single LLM call. That has three
+benefits:
 
-Why the union is rated rather than the pipelines compared:
-    The pipelines return heavily overlapping sections - typically 10-18 unique
-    sections across all five, not 25. Rating each UNIQUE section once means:
+  * one LLM call instead of five
+  * no bias from ordering, because the model never sees "pipeline A versus
+    pipeline B" - it only judges whether a section answers the question
+  * the same section always gets the same rating, so any difference between
+    pipelines comes purely from WHICH sections they found and WHERE they ranked
+    them
 
-      * one LLM call instead of five
-      * no position bias - the model never sees "pipeline A vs pipeline B", it
-        just judges whether a section answers the question, so it cannot
-        favour whichever list happened to come first
-      * identical sections are guaranteed identical scores, so differences
-        between pipelines come only from WHICH sections they found and WHERE
-        they ranked them
-
-Scoring:
-    Per-pipeline score is DCG over the ratings - a good section at rank 1
-    counts for more than the same section at rank 5, which is exactly the
-    difference between these pipelines. Summaries are derived arithmetically
-    from the ratings, so no second LLM call is needed.
+Each pipeline is then scored with DCG (discounted cumulative gain): a good
+section in first place counts for more than the same section in fifth place,
+which is exactly what separates these pipelines. The one-line summaries are
+worked out from the ratings, so no second LLM call is needed.
 """
 
 import json
@@ -44,23 +40,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Deliberately the BIG model, unlike the 8B used by select.py / grade.py /
-# transform.py. Judging is the one job here that an 8B measurably cannot do:
-# asked to rate sections for "Does my landlord have to protect my deposit?",
-# the 8B scored `Private renting > Deposit protection` a 0 - despite that
-# section stating "In England, your landlord must keep your deposit safe using
-# a government-approved tenancy deposit protection scheme". It had fixated on
-# the section's opening clause about Wales. The 70B rates it 3 with the right
-# reason, and correctly downgrades the resident-landlord case to a 1.
-#
-# Affordable because this runs once per comparison, on demand - it is not in
-# the search path.
+# A big model on purpose, unlike the small one used by select.py, grade.py and
+# transform.py. Rating sections is the one job here the small model measurably
+# cannot do: asked about deposit protection, it rated a section 0 even though
+# that section plainly states a landlord must protect the deposit - it had
+# latched onto the opening clause and stopped reading. The big model rates it
+# correctly. Affordable because this runs once per comparison, on request, and
+# never during a normal search.
 MODEL = "meta-llama/Llama-3.3-70B-Instruct"
 BASE_URL = "https://api.deepinfra.com/v1/openai"
 TIMEOUT_S = 60
 
-# Which pipelines the comparison runs. All five, in cheapest-first order so the
-# panel fills in roughly the order a reader would expect to see them.
+# Which pipelines to compare, cheapest first.
 COMPARE_MODES = ("dense", "hybrid", "rerank", "route", "crag")
 
 SNIPPET_CHARS = 300
@@ -114,7 +105,7 @@ def _client() -> OpenAI:
 
 
 def _rate_sections(question: str, sections: list[dict], model: str) -> dict:
-    """Rate each unique section 0-3. Returns {parent_id: {rating, comment}}."""
+    """Rate every section 0-3 in one call. Returns {section id: {rating, comment}}."""
     listing = "\n\n".join(
         f"[{i}] {s['breadcrumb']}\n{' '.join((s.get('text') or '').split())[:SNIPPET_CHARS]}"
         for i, s in enumerate(sections, 1)
@@ -151,11 +142,11 @@ def _rate_sections(question: str, sections: list[dict], model: str) -> dict:
 
 
 def _summarise(rated: list[dict]) -> tuple[float, str]:
-    """DCG score plus a plain-English summary, both derived from the ratings.
+    """Turn a pipeline's ratings into a score and a one-line summary.
 
-    DCG rather than a plain average because rank is the thing that differs
-    between these pipelines - the same section at rank 1 and rank 5 is not an
-    equally good result.
+    The score is DCG rather than a plain average, because position is what
+    differs between these pipelines: the same good section in first place and
+    in fifth place are not equally useful results.
     """
     scored = [r for r in rated if r.get("rating") is not None]
     if not scored:
@@ -180,15 +171,17 @@ def _summarise(rated: list[dict]) -> tuple[float, str]:
 
 def review_pipelines(question: str, top_k: int = 5, modes: tuple[str, ...] = COMPARE_MODES,
                      model: str = MODEL) -> list[dict]:
-    """Run the question through every pipeline and review what each retrieved.
+    """Run the question through every pipeline and review what each one found.
 
-    Returns one block per mode: {mode, latency_ms, score, summary, sections},
-    ordered best-scoring first. Pipelines run sequentially - embedded Qdrant
-    holds a folder lock and BM25 is GIL-bound, so threading them is unlikely
-    to pay (the same reasoning applied to route's branches).
+    Returns one block per pipeline: {mode, latency_ms, score, summary,
+    sections}, best score first.
 
-    If the rating call fails the blocks are still returned, unrated, so the
-    panel renders rather than erroring.
+    The pipelines run one after another rather than in parallel. The database
+    only allows one reader at a time and the keyword search is CPU-bound, so
+    running them at once would not actually save much.
+
+    If the rating call fails, the blocks are still returned without ratings, so
+    the panel still displays instead of erroring.
     """
     from retrieval.search import retrieve
 
@@ -199,7 +192,8 @@ def review_pipelines(question: str, top_k: int = 5, modes: tuple[str, ...] = COM
         runs[mode] = retrieve(question, top_k=top_k, mode=mode)
         timings[mode] = int((time.perf_counter() - t0) * 1000)
 
-    # Deduplicate across pipelines: rate each distinct section once.
+    # The pipelines overlap a lot, so collect each distinct section once and
+    # rate that set - one LLM call instead of five, and no ordering bias.
     unique: dict[str, dict] = {}
     for parents in runs.values():
         for p in parents:

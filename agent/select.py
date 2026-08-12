@@ -1,41 +1,33 @@
 """
-agent/select.py
+Reads the question and picks which retrieval pipeline should run. Used by
+retrieval/agentic.py.
 
-Pipeline selection: read the question, pick which retrieval pipeline to run.
+The five pipelines were built one on top of the other, so it is tempting to
+assume the newest always wins. Measured, that is not true - no single pipeline
+is right for every question:
 
-Why this exists (the measurement that justifies it):
-    Five pipelines were built, each one "better" than the last, and the natural
-    assumption was that the newest wins. Measured over the 39-question testset
-    that assumption is wrong - no single pipeline is right for every query:
+    best single pipeline (crag)        0.67
+    a perfect per-question choice      0.82
 
-        best single pipeline (crag)          MRR 0.6743
-        oracle - perfect per-query choice    MRR 0.8221
+That gap is larger than every retrieval technique in this project added
+together. crag loses on 11 of 37 questions, and the winners are often the
+pipelines that look weakest on average: route scores worst overall yet is the
+only pipeline that finds two of the questions at all, and dense - the simplest
+and cheapest - wins outright on five.
 
-    That +0.1478 gap is larger than every retrieval technique added so far,
-    combined. crag - the best pipeline - is beaten on 11 of 37 questions, and
-    the winners are modes that look weak on average:
+So being weak on average says nothing about being wrong for a PARTICULAR
+question, and choosing per question is the biggest remaining improvement
+available. This file is the attempt at it.
 
-      * route scores WORST overall (0.4486) yet is the only pipeline that
-        finds two questions at all. "Can my employer take money out of my
-        wages?" is rank 4 under route and a total miss under every other mode.
-      * dense is the cheapest and simplest, and wins outright on 5 questions -
-        "who pays council tax with a lodger" is rank 1 for dense, rank 4 for
-        crag.
+It does not succeed. Whether the right pipeline can be guessed from the
+question text alone turned out to be the catch: measured, this scores slightly
+below simply always using crag. See retrieval/agentic.py for the full write-up.
+It is kept because the finding is worth recording, and the evaluation harness
+scores it like any other mode so the claim can be re-checked rather than taken
+on trust.
 
-    So a pipeline being weak ON AVERAGE says nothing about whether it is the
-    right one for a PARTICULAR query. Choosing per query is the largest
-    remaining win available, which is what this file attempts.
-
-Honest caveat:
-    Whether the right pipeline is predictable from the question text alone is
-    an open question - the oracle only proves the headroom exists, not that it
-    is reachable. eval/run_eval.py scores "agentic" like any other mode
-    precisely so this can be checked against the 0.6743 bar rather than
-    assumed.
-
-Failure is not an error:
-    Anything unexpected returns "crag", today's best single pipeline, so a
-    broken selector degrades to current behaviour instead of breaking search.
+If the call fails for any reason it returns "crag", the best single pipeline,
+so a broken selector leaves the system working as normal.
 """
 
 import json
@@ -47,20 +39,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Same small model as the other agent-side calls: this is a routing decision on
-# one sentence, not reasoning.
+# The same small model as the other agent calls: this is one short decision
+# about one sentence, not reasoning.
 MODEL = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 BASE_URL = "https://api.deepinfra.com/v1/openai"
 TIMEOUT_S = 15
 
-# What the selector may choose. Deliberately NOT imported from search.MODES:
-# that tuple contains "agentic" itself, and letting this return "agentic" would
-# recurse forever. Keeping the list here makes the guard explicit.
+# What may be chosen. This is written out by hand rather than imported from
+# search.MODES, because that list includes "agentic" itself - and choosing
+# "agentic" would make this call itself forever.
 SELECTABLE = ("dense", "hybrid", "rerank", "route", "crag")
 FALLBACK = "crag"
 
-# The descriptions below are derived from the oracle analysis, not intuition -
-# each one names the query shape that mode actually won on.
+# Each description below names the kind of question that pipeline actually won
+# on in testing, rather than what it sounds like it should be good at.
 SYSTEM_PROMPT = """You route a user's question to the retrieval pipeline most likely to \
 answer it well. The corpus is UK government and NHS guidance for international students \
 (visas, tax, National Insurance, housing, NHS, banking, employment, student finance).
@@ -117,8 +109,8 @@ def _client() -> OpenAI:
 def select_pipeline(question: str, model: str = MODEL) -> dict:
     """Choose a retrieval pipeline for this question.
 
-    Returns {"mode": one of SELECTABLE, "reason": str}. Never returns
-    "agentic", and never raises - any failure falls back to FALLBACK.
+    Returns {"mode": one of SELECTABLE, "reason": str}. It never returns
+    "agentic" and never raises - any failure falls back to FALLBACK.
     """
     try:
         resp = _client().chat.completions.create(
@@ -137,8 +129,8 @@ def select_pipeline(question: str, model: str = MODEL) -> dict:
 
         data = json.loads(raw[start:end + 1])
         mode = str(data.get("mode", "")).strip().lower()
-        # The recursion guard: "agentic" is not in SELECTABLE, so a model that
-        # echoes it back lands here rather than calling us again.
+        # "agentic" is not in SELECTABLE, so if the model replies with it the
+        # answer lands here and becomes the fallback instead of looping.
         if mode not in SELECTABLE:
             return {"mode": FALLBACK, "reason": f"selector chose unknown mode {mode!r}"}
         return {"mode": mode, "reason": str(data.get("reason", "")).strip()}
