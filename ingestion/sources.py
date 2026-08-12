@@ -114,7 +114,7 @@ SOURCES = {
 # the separate HTML scraper in fetch_nhs.py rather than fetch.py.
 # These are full URLs. The scraper crawls related links but stays inside
 # NHS_ALLOWED_PREFIXES (below) so it never wanders into the /conditions/
-# medical encyclopedia, which isn't relevant to a student admin assistant.
+# medical encyclopedia.
 # ---------------------------------------------------------------------------
 NHS_SOURCES = [
     "https://www.nhs.uk/nhs-services/gps/how-to-register-with-a-gp-surgery/",

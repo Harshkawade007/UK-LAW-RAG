@@ -7,17 +7,28 @@ __pycache__/
 # Secrets
 .env
 
-# Local Qdrant vector store (regenerate with `python index.py`)
-qdrant_data/
-
 # OS
 .DS_Store
 Thumbs.db
 
-# Eval Results
-eval/results
 
+# ---------------------------------------------------------------------------
+# Derived artifacts. All three regenerate from laws/, which IS committed.
 #
-chunks/
+#   python ingestion/clean.py     laws/    -> cleaned/    (byte-identical)
+#   python ingestion/chunk.py     cleaned/ -> chunks/     (4,721 children)
+#   python ingestion/index.py     chunks/  -> qdrant_data/
+#
+# Verified 2026-08-12: a full rebuild from the committed laws/ reproduces the
+# recorded retrieval scores exactly (dense 0.6599 / hybrid 0.5784 /
+# rerank 0.6608). laws/ stays committed precisely so that stays true - the
+# eval testset's expected_parent_ids are section ids pinned to THIS corpus,
+# and re-fetching live gov.uk would drift them.
+# ---------------------------------------------------------------------------
 cleaned/
-laws/
+chunks/
+qdrant_data/
+
+# Eval run outputs. The harness writes a timestamped JSON per run; these are
+# scratch, not evidence. Numbers that back a claim belong in README.md.
+eval/results/

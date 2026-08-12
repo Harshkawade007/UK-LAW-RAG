@@ -43,7 +43,7 @@ Six retrieval pipelines, each the previous one plus a stage, all still runnable 
 Reproduce the free ones in about a minute:
 
 ```bash
-python -m eval.run_eval --compare dense hybrid rerank
+python -m eval.run_eval dense hybrid rerank
 ```
 
 ---
@@ -118,6 +118,18 @@ uv sync                          # or: pip install -r requirements.txt
 echo 'DEEPINFRA_TOKEN=your_token_here' > .env
 ```
 
+**Build the index** (once, ~2 min). The fetched corpus `laws/` is committed; everything derived from it is not, so you build it locally:
+
+```bash
+python ingestion/clean.py        # laws/ -> cleaned/
+python ingestion/chunk.py        # cleaned/ -> chunks/   4,721 children + parents
+python ingestion/index.py        # chunks/ -> qdrant_data/
+```
+
+This is deterministic — a rebuild reproduces the scores in the table above exactly. That is *why* `laws/` is committed rather than re-fetched: the testset's ground truth is section IDs pinned to this snapshot of gov.uk, and live pages drift.
+
+> **Want a fresh corpus instead?** Run the fetchers (`cd ingestion && python fetch.py --discover && python fetch_nhs.py --discover && python dedupe.py --apply`) then rebuild. You'll get a working system — but **the testset will no longer be valid against it.** `expected_parent_ids` are positional section IDs, so different pages mean they point somewhere else, and the recorded numbers stop meaning anything. Re-ground the testset before trusting any score.
+
 ```bash
 # ask one question, end to end
 python ask.py "How many hours can I work on a Student visa?"
@@ -127,8 +139,9 @@ python ask.py --mode dense --k 8 "..."      # pick a pipeline / more sections
 uvicorn api.main:app
 
 # retrieval metrics — free, no LLM calls
-python -m eval.run_eval --compare dense hybrid rerank
-python -m eval.run_eval --mode crag         # costs credits (1 call/question)
+python -m eval.run_eval dense hybrid rerank   # compare any set of pipelines
+python -m eval.run_eval free                 # shorthand: the three free ones
+python -m eval.run_eval crag                 # costs credits (1 call/question)
 ```
 
 Two constraints that will bite otherwise:
@@ -136,7 +149,7 @@ Two constraints that will bite otherwise:
 - **Run query-side scripts from the project root.** Ingestion scripts are the opposite — they import siblings by bare name, so they must run from inside `ingestion/`.
 - **Never start the API with `--reload` or `--workers > 1`.** Qdrant runs embedded and holds a lock on `qdrant_data/`; a second process cannot open it.
 
-The corpus and index are committed, so none of the above needs a re-fetch. To rebuild from scratch, see [ARCHITECTURE.md](ARCHITECTURE.md#build-time).
+See [ARCHITECTURE.md](ARCHITECTURE.md#build-time) for what each build step does.
 
 ---
 
@@ -191,8 +204,10 @@ agent/         the LLM call sites: generate, grade, select, review
 api/           FastAPI + a single-page UI with no build step
 ingestion/     fetch → dedupe → clean → chunk → index
 eval/          39-question testset + the metrics harness
-laws/          386 fetched pages, 7 categories (committed)
-chunks/        4,721 children + 4,629 parents (committed — needed at runtime)
+laws/          386 fetched pages, 7 categories — COMMITTED, the pinned corpus
+cleaned/       derived from laws/       ─┐
+chunks/        derived from cleaned/     ├─ gitignored, built locally
+qdrant_data/   derived from chunks/     ─┘
 ```
 
 **Models.** `bge-small-en-v1.5` for embeddings, `ms-marco-MiniLM-L-6-v2` for reranking, Llama-3.1-8B for the cheap decisions (rewrite, grade, select) and Llama-3.3-70B for generation and judging. The small reranker is a deliberate constraint — the development machine repeatedly hit `paging file is too small`, so a 2.3GB reranker was never an option.

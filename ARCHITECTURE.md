@@ -32,6 +32,8 @@ gov.uk Content API          nhs.uk HTML
 
 **Only children are embedded.** Embedding parents was measured to blur retrieval: a long section averages out to a vector that matches everything weakly and nothing precisely. `parents.jsonl` is loaded into a plain dict and looked up by id.
 
+**`laws/` is committed; everything downstream of it is not.** `cleaned/`, `chunks/` and `qdrant_data/` are gitignored and rebuilt locally with three commands. Verified 2026-08-12: a full rebuild from the committed `laws/` reproduces `cleaned/` byte-identically and reproduces the recorded retrieval scores exactly. The corpus is committed *because* the testset's `expected_parent_ids` are positional section IDs (`parent_id = f"{doc_id}#{p_i}"`) pinned to this snapshot — re-fetching live gov.uk drifts them silently.
+
 Two fetchers exist because the sources differ fundamentally — gov.uk has a Content API returning JSON, nhs.uk does not and has to be scraped with BeautifulSoup. Both write the **same file shape**, so everything downstream treats them uniformly. Preserve that shape in any new fetcher.
 
 Filenames encode the path (`student-visa/family-members` → `student-visa__family-members.json`), which is how re-runs know what already exists. Fetching is idempotent unless `--force`.
@@ -268,4 +270,4 @@ store ← dense ← hybrid ← rerank ← { route, crag } ← search
 
 Measured warm, the ordering is what the code structure requires: `hybrid` calls `dense_search` **and** BM25, so it cannot be faster than `dense`. If you are comparing mode latencies, warm the caches first and time them directly — don't read them off an eval run.
 
-`crag` is the default everywhere a human reads the output — `retrieve()`, `ask.py` and the web UI — because it scores best *and* is the only mode that can decline. `eval/run_eval.py` keeps its own `--mode` default at `rerank` so the per-stage baselines stay comparable, and the API's startup warm-up stays on `rerank` because it exists only to load models and an LLM call there would cost credits on every server start.
+`crag` is the default everywhere a human reads the output — `retrieve()`, `ask.py` and the web UI — because it scores best *and* is the only mode that can decline. `eval/run_eval.py` keeps its own `DEFAULT_MODE` at `rerank` so the per-stage baselines stay comparable, and the API's startup warm-up stays on `rerank` because it exists only to load models and an LLM call there would cost credits on every server start.

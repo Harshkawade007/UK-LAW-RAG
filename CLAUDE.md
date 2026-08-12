@@ -72,11 +72,13 @@ python ask.py --mode rerank "Do students pay council tax?"   # no grading, so it
 
 uvicorn api.main:app                     # web UI at http://127.0.0.1:8000
 
-python -m eval.run_eval                  # retrieval metrics, rerank mode, free
-python -m eval.run_eval --mode dense     # the Week-1 vector-only baseline
-python -m eval.run_eval --compare        # all 3 stages, rank-change table
-python -m eval.run_eval --compare dense rerank   # or pick specific modes
-python -m eval.run_eval --with-answers   # + generation, saved to eval/results/ (costs credits)
+# Pipelines are POSITIONAL: none = rerank, one = run it, 2+ = compare them.
+python -m eval.run_eval                  # rerank alone, free
+python -m eval.run_eval dense            # the Week-1 vector-only baseline
+python -m eval.run_eval dense crag       # compare two, rank-change table
+python -m eval.run_eval free             # dense hybrid rerank (no credits)
+python -m eval.run_eval all              # every pipeline (costs credits)
+python -m eval.run_eval --with-answers crag   # + generation, saved to eval/results/
 ```
 
 There are no tests, linter config, or build step yet — `eval/` is the closest thing to a test suite.
@@ -118,7 +120,7 @@ The earlier modes are kept deliberately so eval can A/B each stage — don't rem
 
 **Each branch is reranked against its *own* query, not the original.** This was measured, not assumed: reranking the merged pool against the user's wording reintroduces the exact vocabulary gap the rewrite exists to close. For *"can I work extra during reading week?"* the rewrite correctly pulls `Student visa > What you can and cannot do` into the pool, but scored against the colloquial original it loses to `Maximum weekly working hours`, which merely shares the words work/hours/week. Judging each branch on its own terms fixes that; branch 0 being the original means the user's literal intent still carries equal weight in the fusion.
 
-**Measuring retrieval changes:** `python -m eval.run_eval --compare dense hybrid rerank route`. `eval/testset.py` now scores on `expected_parent_ids` (section-level), not page URL — the earlier page-level metric was proven blind to most retrieval changes (see the eval/testset.py docstring for the full case) and its numbers below are superseded.
+**Measuring retrieval changes:** `python -m eval.run_eval dense hybrid rerank route`. `eval/testset.py` now scores on `expected_parent_ids` (section-level), not page URL — the earlier page-level metric was proven blind to most retrieval changes (see the eval/testset.py docstring for the full case) and its numbers below are superseded.
 
 **Current record — 39-question testset (2026-08-05, section-level, 37 scored + 2 refusal-cases):**
 
@@ -175,7 +177,7 @@ This is the same DeepInfra `temperature=0` non-determinism already documented fo
 
 **Refusal is a `crag`/`agentic` capability, not a global one.** The other four modes produce no grade, pass `None`, and answer unconditionally exactly as before — which is deliberately visible: ask the pet-dog question in `rerank` and it still improvises. That contrast is the demo. Because of it, **`crag` is now the default everywhere a human reads the output** — `retrieve()`, `ask.py` and the web UI — since it is both the best-scoring mode and the only one that can decline.
 
-**This does not move any recorded number.** `eval/run_eval.py` always passes `mode` explicitly (its own `--mode` default stays `rerank`), so the per-stage baselines remain comparable. `api/main.py`'s startup warm-up also stays on `rerank`: it exists only to load the embedding and cross-encoder models, and adding an LLM call to it would cost credits on every server start.
+**This does not move any recorded number.** `eval/run_eval.py` always passes `mode` explicitly (its own `DEFAULT_MODE` stays `rerank`), so the per-stage baselines remain comparable. `api/main.py`'s startup warm-up also stays on `rerank`: it exists only to load the embedding and cross-encoder models, and adding an LLM call to it would cost credits on every server start.
 
 ### Pipeline selection: large headroom, not reachable from the query text
 
@@ -186,7 +188,7 @@ This is the same DeepInfra `temperature=0` non-determinism already documented fo
 | best single pipeline (`crag`) | 0.6743 |
 | **oracle — perfect per-query choice** | **0.8221** |
 
-`crag` is beaten on **11 of 37 questions**, and by modes that look weak on average: **`route` (worst overall, 0.4486) is the only pipeline that finds 2 questions at all**, and **`dense` (cheapest) wins outright on 5**. A mode being weak on average says nothing about whether it is right for a *specific* query. `oracle_mrr()` in `eval/run_eval.py` computes this ceiling, and `--compare` prints it.
+`crag` is beaten on **11 of 37 questions**, and by modes that look weak on average: **`route` (worst overall, 0.4486) is the only pipeline that finds 2 questions at all**, and **`dense` (cheapest) wins outright on 5**. A mode being weak on average says nothing about whether it is right for a *specific* query. `oracle_mrr()` in `eval/run_eval.py` computes this ceiling, and any multi-pipeline run prints it.
 
 ⚠️ **But an LLM selector reading the question cannot capture it. `agentic` scored 0.6473 vs `crag`'s 0.6743 — worse, with 0 improved and 1 worsened.** Two iterations were run and then deliberately stopped:
 
@@ -224,6 +226,10 @@ Model sizes are constrained by this machine: it has repeatedly hit `OSError: pag
 Embedding/index config is duplicated between `ingestion/index.py` and `retrieval/store.py` (`MODEL_NAME`, `COLLECTION`, `QUERY_PREFIX`, 384 dims, cosine). If you change one, change both or the query will land in a different vector space than the index.
 
 ## Corpus & ingestion architecture
+
+⚠️ **`laws/` is committed; `cleaned/`, `chunks/` and `qdrant_data/` are gitignored and built locally** (`clean.py` → `chunk.py` → `index.py`, ~2 min). Verified 2026-08-12 that a rebuild reproduces `cleaned/` byte-identically and the recorded scores exactly. The corpus is pinned because `expected_parent_ids` in the testset are positional section IDs — re-fetching live gov.uk drifts them with no error.
+
+**One stale artifact was fixed doing this:** the previously committed `chunks/parents.jsonl` had 4,629 parents, but `chunk.py` produces 4,374. The extra 255 were `#0` title stubs (`'# Private renting'`, ~3 tokens) each claiming `n_children: 1` while **no child referenced them** — unreachable by retrieval, which only reaches a parent via a child's `parent_id`. They came from a `chunk.py` version predating `content_blocks()`'s `# `-stripping; the script was edited and the data never regenerated. Dropping them changed no score. **Section IDs did not shift** — `p_i` indexes the sections list, so skipping an unemitted parent does not renumber its siblings.
 
 The corpus is plain JSON files under `laws/<category>/<slug>.json`, one file per page. Seven categories: `visa`, `tax_ni`, `housing`, `banking`, `nhs`, `employment`, `education`. Every file — from either fetcher — has the **same shape**: `{title, description, body, source_url, last_updated, schema_name, category}`. Preserve this shape in any new fetcher so downstream cleaning/chunking treats all sources uniformly.
 
