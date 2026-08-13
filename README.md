@@ -115,35 +115,7 @@ python -m eval.run_eval all          # every pipeline — reproduces the full ta
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    subgraph Ingestion["Ingestion (offline, ingestion/)"]
-        A[gov.uk Content API] --> B[fetch.py / fetch_nhs.py]
-        B --> C[laws/ raw JSON]
-        C --> D[dedupe.py]
-        D --> E[clean.py]
-        E --> F[chunk.py]
-        F --> G["chunks/children.jsonl<br/>chunks/parents.jsonl"]
-        G --> H[index.py: embed children]
-        H --> I[(Qdrant<br/>law_children)]
-    end
-
-    subgraph Query["Query time (retrieval/, agent/)"]
-        Q[User question] --> R{search.py<br/>pipeline dispatch}
-        R --> P1[dense]
-        R --> P2[hybrid]
-        R --> P3[rerank]
-        R --> P4[route]
-        R --> P5[crag]
-        R --> P6[agentic]
-        P1 & P2 & P3 & P4 & P5 & P6 --> S[expand_to_parents]
-        S --> T[Full parent sections]
-        T --> U[generate.py]
-        U --> V[Answer + citations]
-    end
-
-    I -.child vectors.-> P1 & P2 & P3 & P4 & P5 & P6
-```
+![Architecture overview: gov.uk and NHS sources become a searchable Qdrant index through an already-run ingestion pipeline; answering a question means search.py dispatching to one of six retrieval pipelines — dense, hybrid, rerank, route, crag (the default), or agentic — before the result is expanded to full sections and turned into a cited answer.](assets/diagrams/architecture-overview.svg)
 
 **The core retrieval trick — small-to-big:** only the small ~250-token *child* chunks are embedded and searched. Each child links to its full *parent* section, which is what actually gets handed to the LLM for generation. Children are precise search targets; parents give the model the surrounding context — including caveats a lone sentence would misrepresent. (Example that motivated this: a chunk reading *"you do not have to protect a holding deposit"* is dangerous read alone, safe read inside its full section.)
 
