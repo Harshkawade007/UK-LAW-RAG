@@ -58,21 +58,51 @@ DEEPINFRA_TOKEN=your_token_here
 
 ### 3. Build the index
 
-The corpus (`laws/`) is committed to the repo, so a fresh clone can build the full index offline, with no API calls and no re-fetching from gov.uk:
+Turning the raw corpus into something searchable is a five-step pipeline — fetch pages, remove duplicates, strip them to plain text, split them into pieces, then embed and store those pieces:
+
+```mermaid
+flowchart TD
+    subgraph committed["Already done for you — laws/ is committed to the repo"]
+        gov[("gov.uk<br/>Content API")] --> fetchpy["fetch.py"]
+        nhs[("nhs.uk<br/>pages")] --> fetchnhs["fetch_nhs.py"]
+        fetchpy --> laws["laws/ — 386 pages<br/>across 7 categories"]
+        fetchnhs --> laws
+        laws --> dedupe["dedupe.py --apply<br/>drops pages saved under two categories"]
+    end
+
+    subgraph buildstep["What 'ingestion/build.py' runs"]
+        dedupe --> clean["clean.py<br/>HTML to plain text"]
+        clean --> chunk["chunk.py<br/>splits into sections, then chunks"]
+        chunk --> parents["chunks/parents.jsonl<br/>4,374 full sections"]
+        chunk --> children["chunks/children.jsonl<br/>4,721 small pieces"]
+        children --> index["index.py<br/>embeds each piece,<br/>writes vectors"]
+        index --> qdrant[("qdrant_data/<br/>the searchable index")]
+    end
+```
+
+What each step actually does:
+
+- **`fetch.py` / `fetch_nhs.py`** — download pages from gov.uk's Content API and scrape nhs.uk's HTML, writing one JSON file per page into `laws/<category>/`. Two different fetchers because the sources are structurally different: one is an API, the other has to be scraped.
+- **`dedupe.py`** — the same page can get crawled under two categories (e.g. a general money page found by both `banking` and `housing`); this keeps one copy in the most specific category and deletes the rest, so duplicates don't skew search results or the eval scores.
+- **`clean.py`** — strips the raw HTML down to plain text, but keeps section headings as `## ` markers, because that's exactly what the next step splits on.
+- **`chunk.py`** — splits each page into sections on those headings, then packs each section into ~250-token pieces. This produces **two files**: `parents.jsonl` (the full sections — what the LLM eventually reads) and `children.jsonl` (the small pieces — what actually gets searched; see [small-to-big retrieval](#small-to-big-retrieval-in-detail) below for why they're different sizes).
+- **`index.py`** — turns every child chunk into a 384-number vector and writes it into `qdrant_data/`, the database every search pipeline actually queries.
+
+**Fetching and deduping only need to happen once, and their output (`laws/`) is committed to the repo** — so a fresh clone never has to touch gov.uk or nhs.uk to get a working system. `ingestion/build.py` runs everything from `clean` onward, always in that order — it exists partly because running `clean` before `dedupe` fails *silently* rather than erroring (see [Build time](#build-time) below for exactly what breaks), so a script enforcing the order is safer than three commands typed by hand:
 
 ```bash
 python ingestion/build.py
 ```
 
-This runs `clean → chunk → index` against the pinned `laws/` corpus and reports timing per step. Useful flags:
+Useful flags:
 
 ```bash
 python ingestion/build.py --force         # rebuild ignoring existing outputs
 python ingestion/build.py --from chunk    # resume partway (skip clean)
-python ingestion/build.py --fetch         # refresh the corpus first: fetch → dedupe → clean → chunk → index
+python ingestion/build.py --fetch         # re-fetch + dedupe first, then clean → chunk → index
 ```
 
-> ⚠️ **`--fetch` changes the corpus.** All benchmark numbers in this README are measured against the pinned `laws/` snapshot. Re-fetching can add, remove, or shift content, which invalidates the evaluation set's expected answers. `--fetch` prints a warning and asks for confirmation before running — this is intentional, not a bug.
+> ⚠️ **`--fetch` changes the corpus.** All benchmark numbers in this README, and the test set's expected answers, are measured against the pinned `laws/` snapshot. Re-fetching can add, remove, or shift content, which silently invalidates them. `--fetch` prints a warning and asks for confirmation before running — that's intentional, not a bug.
 
 ### 4. Run it
 
@@ -141,31 +171,11 @@ flowchart LR
 
 ### Build time
 
-Runs offline, no API token needed — `python ingestion/build.py` runs the whole chain:
+The pipeline itself — what each step does, and why fetching is already done for you — is walked through in [Build the index](#setup) above. A few things worth knowing beyond that walkthrough:
 
-```
-gov.uk Content API          nhs.uk HTML
-        │                        │
-   fetch.py                 fetch_nhs.py
-        └───────────┬────────────┘
-                     ↓
-            laws/<category>/<slug>.json      386 pages, 7 categories
-                     ↓
-              dedupe.py --apply              same page crawled twice
-                     ↓
-               clean.py                      HTML → plain text
-                     ↓
-               chunk.py
-                     ├──→  chunks/children.jsonl   4,721  ~250 tokens each
-                     │            ↓
-                     │       index.py  ──→  qdrant_data/   (gitignored)
-                     │
-                     └──→  chunks/parents.jsonl    4,374  full sections
-                                  ↓
-                           read directly at query time — NEVER embedded
-```
+**Only children are embedded.** Embedding a full parent section was measured to blur retrieval: a long section averages out to a vector that matches everything weakly and nothing precisely. Parents stay in a plain dict (`chunks/parents.jsonl`), looked up by id after a child matches — never embedded, never searched directly.
 
-Only children are embedded — a long section averages out to a vector that matches everything weakly and nothing precisely, so parents stay in a plain dict looked up by id. `laws/` is committed; everything downstream of it is gitignored and rebuilt locally in one command. A full rebuild reproduces `cleaned/` byte-identically and the recorded scores in the table below exactly — verified, not assumed.
+**`laws/` is committed; everything downstream of it is gitignored** and rebuilt locally in one command. A full rebuild reproduces `cleaned/` byte-identically and the recorded scores in the table below exactly — verified, not assumed.
 
 ⚠️ **`dedupe` must run before `clean`, or the failure is silent.** `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate `dedupe` was meant to remove. Nothing errors. `ingestion/build.py` enforces the order and prunes orphans after any fetch, which is the main reason it exists rather than three commands run by hand.
 
