@@ -6,13 +6,13 @@ What actually happens between a question and an answer, and why each piece is sh
 
 ## Build time
 
-Runs offline, needs no API token. **`python build.py`** runs the whole chain; the individual scripts still work standalone.
+Runs offline, needs no API token. **`python ingestion/build.py`** runs the whole chain; the individual scripts still work standalone.
 
 ```
-python build.py            clean -> chunk -> index      (from the committed laws/)
-python build.py --force    re-clean every page
-python build.py --from chunk   resume part-way
-python build.py --fetch    fetch -> dedupe -> clean -> chunk -> index   (warns first)
+python ingestion/build.py            clean -> chunk -> index      (from the committed laws/)
+python ingestion/build.py --force    re-clean every page
+python ingestion/build.py --from chunk   resume part-way
+python ingestion/build.py --fetch    fetch -> dedupe -> clean -> chunk -> index   (warns first)
 ```
 
 ⚠️ **`dedupe` must run before `clean`, and `build.py` exists partly to enforce that.** `dedupe.py` deletes duplicate pages from `laws/`, but `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate dedupe removed. Nothing errors. `build.py` prunes orphans and forces a full re-clean after any fetch.

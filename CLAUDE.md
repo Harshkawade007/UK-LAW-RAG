@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-An agentic RAG system that answers UK legal/admin questions for international students, with citations, self-correction, and the ability to **decline** when the corpus doesn't cover the question. There is no roadmap file — the design decisions live in this file and in the module docstrings, which record what was *measured* rather than what was intended.
+An agentic RAG system that answers UK legal/admin questions for international students, with citations, self-correction, and the ability to **decline** when the corpus doesn't cover the question. There is no roadmap file — the design decisions live in this file, in `ARCHITECTURE.md`, and in the module docstrings.
 
-**Current state — all six retrieval pipelines, the API/UI, and the eval harness are built.** `main.py` is a leftover `uv` scaffold stub that prints a greeting; ignore it. The fetchers are `ingestion/fetch.py` and `ingestion/fetch_nhs.py` — there is no root-level fetcher.
+**Current state — all six retrieval pipelines, the API/UI, and the eval harness are built.** The fetchers are `ingestion/fetch.py` and `ingestion/fetch_nhs.py`; there is no root-level fetcher, and the only script at the project root is `ask.py`. The build orchestrator is `ingestion/build.py`.
 
-Prose docs: `README.md` (front door — holds the canonical results table) and `ARCHITECTURE.md` (mechanism and diagrams). Keep measured numbers in those two and in module docstrings; don't add a third copy here.
+⚠️ **Measured numbers belong in `README.md` (the canonical results table), `ARCHITECTURE.md`, and this file — NOT in module docstrings.** The docstrings were deliberately rewritten to be beginner-readable explanations of *what the code does and why*, in plain language, with no MRR figures, run logs, or dated findings. Keep them that way: a number in a docstring is a fourth copy that will silently go stale. State the *finding* there ("hybrid scores lower than dense — adding a signal is not automatically safe") and leave the figure here.
 
 ```
 retrieval/
@@ -66,10 +66,10 @@ The query-side scripts import packages (`from retrieval.search import ...`), so 
 
 ```bash
 # BUILD — one command from the project root, no API token needed
-python build.py                 # clean -> chunk -> index (from the committed laws/)
-python build.py --force         # re-clean every page
-python build.py --from chunk    # resume part-way
-python build.py --fetch         # fetch -> dedupe -> clean -> chunk -> index (prompts)
+python ingestion/build.py                 # clean -> chunk -> index (from the committed laws/)
+python ingestion/build.py --force         # re-clean every page
+python ingestion/build.py --from chunk    # resume part-way
+python ingestion/build.py --fetch         # fetch -> dedupe -> clean -> chunk -> index (prompts)
 
 python ask.py "Do students pay council tax?"              # end-to-end: retrieve + cited answer (crag)
 python ask.py --mode rerank "Do students pay council tax?"   # no grading, so it never declines
@@ -130,9 +130,9 @@ The earlier modes are kept deliberately so eval can A/B each stage — don't rem
 
 | mode | MRR@5 | hit-rate | determinism | avg latency | LLM calls |
 |---|---|---|---|---|---|
-| dense | 0.6599 | — | deterministic | 0.23s | 0 |
-| hybrid | **0.5784** | — | deterministic | 0.07s | 0 |
-| rerank | 0.6608 | 31/37 | deterministic | 1.36s | 0 |
+| dense | 0.6599 | — | deterministic | 0.04s | 0 |
+| hybrid | **0.5784** | — | deterministic | 0.05s | 0 |
+| rerank | 0.6608 | 31/37 | deterministic | 0.81s | 0 |
 | route | **0.4486** | 25/37 | **NOT deterministic** | 5.30s | 1 |
 | **crag** | **0.6743** | 31/37 | follows rerank | 3.69s | 1 (+1 if escalating) |
 
@@ -158,7 +158,7 @@ It escalated **3/39**, and all three were correct calls:
 
 **Both refusal-cases were caught.** That is the grader's most valuable property and MRR cannot express it: it detects *the system is about to answer from the wrong source*, which is precisely the signal a legal assistant needs in order to decline rather than improvise. Zero false positives across both runs — it has never escalated a question that was already correct at rank 1.
 
-`crag` costs 3.69s vs `rerank`'s 1.36s. Note it escalates *to* `route`, which is the weakest mode — this works only because escalation is rare and the grader is precise. **If `route` degrades further, revisit what `crag` escalates to.**
+`crag` costs 3.69s vs `rerank`'s 0.81s — almost entirely the LLM round-trip, not local compute. Note it escalates *to* `route`, which is the weakest mode — this works only because escalation is rare and the grader is precise. **If `route` degrades further, revisit what `crag` escalates to.**
 
 ### Refusal: the grade is wired to generation (and why there are two grades)
 

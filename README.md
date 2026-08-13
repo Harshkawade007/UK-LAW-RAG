@@ -1,228 +1,251 @@
-# UK Student Legal Assistant
+# UK Law RAG
 
-A retrieval-augmented QA system over UK government and NHS guidance, built for international students — visas, tax, National Insurance, housing, NHS access, banking, employment, student finance.
+A retrieval-augmented question-answering system for navigating UK administrative and legal rules — visas, tax, housing, banking, employment rights, the NHS, and education — grounded entirely in [gov.uk](https://www.gov.uk) and [legislation.gov.uk](https://www.legislation.gov.uk) content.
 
-It answers with inline citations to the exact gov.uk section it used, corrects itself when the first search comes back weak, and — the part most RAG demos skip — **declines to answer when the corpus doesn't cover the question** instead of improvising something confident and wrong.
+Six retrieval strategies are implemented and empirically benchmarked against a 39-question evaluation set, from a plain dense-vector baseline up to a Corrective RAG (CRAG) pipeline that grades its own retrieval and can decline to answer rather than guess.
 
-```
-$ python ask.py "Do full-time students have to pay Council Tax?"
-
-Households where everyone is a full-time student do not have to pay Council
-Tax [1]. To qualify, your course must last at least 1 year and involve at
-least 21 hours of study per week [1]. Full-time students are "disregarded"
-when working out how many people live in a property, so you may be able to
-apply for a discount [3].
-
-This is general information, not legal advice.
-
-Sources:
-  [1] How Council Tax works > Discounts for full-time students
-       https://www.gov.uk/council-tax
-```
+> Built after relocating to the UK and repeatedly hitting the same wall: official guidance exists, but finding the *right* page for a specific situation is hard. This project is a portfolio piece exploring what it actually takes to make retrieval reliable enough to trust, not just plausible enough to demo.
 
 ---
 
-## Results
+## Table of contents
 
-Six retrieval pipelines, each the previous one plus a stage, all still runnable so every stage can be A/B'd against the next.
+- [Setup](#setup)
+- [Architecture](#architecture)
+- [The six retrieval pipelines](#the-six-retrieval-pipelines)
+- [Why CRAG wins](#why-crag-wins)
+- [Why the agentic router underperformed](#why-the-agentic-router-underperformed)
+- [Evaluation methodology](#evaluation-methodology)
+- [Project structure](#project-structure)
+- [Design decisions & tradeoffs](#design-decisions--tradeoffs)
+- [Roadmap](#roadmap)
+- [License](#license)
 
-| mode | MRR@5 | hit-rate | latency | LLM calls | can refuse? |
-|---|---|---|---|---|---|
-| `dense` | 0.6599 | 31/37 | 0.23s | 0 | no |
-| `hybrid` | 0.5784 | 30/37 | 0.07s | 0 | no |
-| `rerank` | 0.6608 | 31/37 | 1.36s | 0 | no |
-| `route` | 0.4486 | 25/37 | 5.30s | 1 | no |
-| **`crag`** *(default)* | **0.6743** | 31/37 | 3.69s | 1 (+1 if escalating) | **yes** |
-| `agentic` | 0.6473 | 30/37 | — | 1 + inner | yes |
-| *oracle* | *0.8221* | — | — | — | — |
+---
 
-<sub>39-question testset — 37 scored + 2 out-of-corpus refusal cases. Scored at **section** granularity (`parent_id`), not page URL. *Oracle* = the ceiling if a perfect selector chose the best pipeline per query; it is not a mode.</sub>
+## Setup
 
-<sub>⚠️ Latencies are as reported by the eval harness and include cold start — whichever mode runs first pays a one-time ~5s model load spread across 39 questions, which is why `dense` looks slower than `hybrid`. Measured warm they are 0.036s / 0.045s / 0.811s, the order the code requires since `hybrid` calls `dense_search` and then adds BM25.</sub>
+### Prerequisites
 
-Reproduce the free ones in about a minute:
+- Python 3.11+
+- [`uv`](https://docs.astral.sh/uv/) for dependency management
+- A [DeepInfra](https://deepinfra.com) API key (used for LLM calls — query grading, CRAG's judge, generation)
+
+### 1. Clone and install
 
 ```bash
-python -m eval.run_eval dense hybrid rerank
+git clone https://github.com/Harshkawade007/UK-LAW-RAG.git
+cd UK-LAW-RAG
+uv sync
 ```
 
----
+`uv.lock` is committed, so `uv sync` reproduces the exact dependency versions the benchmark numbers below were measured against.
 
-## Four results that contradicted the obvious answer
+### 2. Configure environment variables
 
-The pipelines were easy. Measuring them honestly is what the project is actually about.
-
-**1. Adding BM25 made retrieval worse.**
-`hybrid` (0.5784) scores *below* plain `dense` (0.6599). RRF fusion lets a confidently-wrong BM25 rank outvote a correct dense one. The kicker: under the earlier page-level metric this looked like an improvement (0.87 → 0.90). Fixing the metric to score *sections* rather than *pages* reversed the conclusion entirely. Adding a signal is not automatically safe — and neither is trusting a metric that isn't measuring the thing you care about.
-
-**2. An LLM choosing the best pipeline per query lost to just always running one.**
-The opportunity is real: no single pipeline wins everywhere, and a perfect per-query chooser would score 0.8221 against `crag`'s 0.6743. But an LLM selector reading the question scored **0.6473 — worse than not choosing at all**, with 0 questions improved and 1 worsened. Two prompt iterations; a third was deliberately not attempted, because tuning a prompt until the number rises on the same 39 questions it's scored against is overfitting. A follow-up experiment (cleaning the query before the selector) reached 0.6572 — better, but only by making the selector *more timid*. Of its remaining deviations from `crag`, **zero** were correct.
-
-The honest conclusion: the headroom is real but isn't predictable from query text. Capturing it would mean *running* pipelines and comparing results, not guessing up front.
-
-**3. The cross-encoder's confidence says nothing about whether it's right.**
-
-```
-correct at rank 1 : scores 6.15 – 9.57
-complete miss     : scores 6.22 – 9.34
-```
-
-No threshold separates them. The worked example: *"Does my landlord have to protect my deposit?"* retrieves a section titled **Holding deposits** at rank 1 scoring 9.34 — near the highest in the whole set — and that section says the landlord does **not** have to protect a holding deposit. Lexically near-identical to the question, answering the opposite one.
-
-This killed a score-gated design before it was built, and is the reason self-correction uses an LLM that *reads the text* rather than comparing a float.
-
-**4. The worst pipeline is the one that can't be deleted.**
-`route` scores worst of everything (0.4486) and is non-deterministic at `temperature=0` — its MRR spans 0.6520–0.7078 across three identical runs. It is also **the only pipeline that finds 2 of the test questions at all**. A mode being weak on average says nothing about whether it's right for a specific query.
-
----
-
-## The refusal
-
-`crag` grades its own retrieval before answering. When the verdict is *irrelevant*, no answer is generated — and generating nothing costs nothing, since the refusal path makes no LLM call at all.
-
-The corpus has nothing about university rankings, so:
+Create a `.env` file in the project root:
 
 ```bash
-python ask.py "Which UK university is best for computer science?"
-#  ↳ "I don't have anything in my sources that answers this. The sections
-#     below are the closest matches I found, but none of them actually
-#     address your question — so rather than piece together an answer that
-#     looks confident, I'd rather tell you."
-#
-#     Closest matches:
-#       [1] Visit the UK as a Standard Visitor > Visit to study
-#       [2] Academic Technology Approval Scheme (ATAS)
+DEEPINFRA_API_KEY=your_key_here
 ```
 
-The sections are still shown — labelled *closest matches*, not *sources*, because they are near misses rather than evidence.
+> Check `.env.example` (if present) for the full list of variables your code actually reads — this covers the one required to run any pipeline that makes an LLM call (route, CRAG, agentic, generation).
 
-> **Stated honestly: refusal is a strong signal, not a guarantee.** Only the `irrelevant` verdict refuses, and the grader is non-deterministic at `temperature=0`. With retrieval held fixed, five identical calls returned:
->
-> | question | 5 grader calls |
-> |---|---|
-> | *"Which UK university is best for computer science?"* | `irrelevant` ×5 — stable |
-> | *"Can I bring my pet dog to the UK?"* | `irrelevant` ×3, `relevant` ×2 — **sometimes answers** |
->
-> Making this reliable would mean majority-voting over N grader calls or moving the grader to the 70B model. Neither is measured yet, so it isn't claimed.
+### 3. Build the index
 
----
-
-## Quickstart
-
-Requires Python ≥3.12 and a [DeepInfra](https://deepinfra.com) API token.
-
-```bash
-uv sync                          # or: pip install -r requirements.txt
-
-# the LLM calls read this from a .env at the project root
-echo 'DEEPINFRA_TOKEN=your_token_here' > .env
-```
-
-**Build the index** — one command, ~3 min, **no API token needed**. The fetched corpus `laws/` is committed; everything derived from it is not, so you build it locally:
+The corpus (`laws/`) is committed to the repo, so a fresh clone can build the full index offline, with no API calls and no re-fetching from gov.uk:
 
 ```bash
 python build.py
 ```
 
-That runs `clean` → `chunk` → `index` in order (`--force` to re-clean, `--from chunk` to resume). It's deterministic: a rebuild reproduces `cleaned/` byte-identically and the scores in the table above exactly. That's *why* `laws/` is committed rather than re-fetched — the testset's ground truth is section IDs pinned to this snapshot of gov.uk, and live pages drift.
-
-> **Want a fresh corpus instead?** `python build.py --fetch` re-fetches both sources, dedupes, and rebuilds. It will warn you first, because **the testset stops being valid against a different corpus**: `expected_parent_ids` are positional section IDs, so changed pages mean they silently point elsewhere and the recorded numbers become meaningless. Re-ground the testset before trusting any score.
+This runs `clean → chunk → index` against the pinned `laws/` corpus and reports timing per step. Useful flags:
 
 ```bash
-# ask one question, end to end
-python ask.py "How many hours can I work on a Student visa?"
-python ask.py --mode dense --k 8 "..."      # pick a pipeline / more sections
-
-# web UI at http://127.0.0.1:8000
-uvicorn api.main:app
-
-# retrieval metrics — free, no LLM calls
-python -m eval.run_eval dense hybrid rerank   # compare any set of pipelines
-python -m eval.run_eval free                 # shorthand: the three free ones
-python -m eval.run_eval crag                 # costs credits (1 call/question)
+python build.py --force         # rebuild ignoring existing outputs
+python build.py --from chunk    # resume partway (skip clean)
+python build.py --fetch         # refresh the corpus first: fetch → dedupe → clean → chunk → index
 ```
 
-Two constraints that will bite otherwise:
+> ⚠️ **`--fetch` changes the corpus.** All benchmark numbers in this README are measured against the pinned `laws/` snapshot. Re-fetching can add, remove, or shift content, which invalidates the evaluation set's expected answers. `--fetch` prints a warning and asks for confirmation before running — this is intentional, not a bug.
 
-- **Run query-side scripts from the project root.** Ingestion scripts are the opposite — they import siblings by bare name, so they must run from inside `ingestion/`.
-- **Never start the API with `--reload` or `--workers > 1`.** Qdrant runs embedded and holds a lock on `qdrant_data/`; a second process cannot open it.
+### 4. Run it
 
-See [ARCHITECTURE.md](ARCHITECTURE.md#build-time) for what each build step does.
+**Backend (FastAPI):**
+
+```bash
+uvicorn api.main:app --reload
+```
+
+**Frontend:** a static HTML page in the repo, served independently — open it and point it at the running API.
+
+**CLI (quick single-question check):**
+
+```bash
+python ask.py "Do full-time students have to pay Council Tax?"
+```
+
+### 5. Run the evaluation harness
+
+```bash
+python -m eval.run_eval
+```
+
+Reproduces the MRR numbers below against the 39-question test set.
 
 ---
 
-## The web UI
+## Architecture
 
-`uvicorn api.main:app` serves a single page (plain HTML/JS, no build step) that exposes what the pipeline actually did:
+```mermaid
+flowchart LR
+    subgraph Ingestion["Ingestion (offline, ingestion/)"]
+        A[gov.uk Content API] --> B[fetch.py / fetch_nhs.py]
+        B --> C[laws/ raw JSON]
+        C --> D[dedupe.py]
+        D --> E[clean.py]
+        E --> F[chunk.py]
+        F --> G["chunks/children.jsonl<br/>chunks/parents.jsonl"]
+        G --> H[index.py: embed children]
+        H --> I[(Qdrant<br/>law_children)]
+    end
 
-- switch pipelines per query and watch the retrieved sections change
-- the **trace panel** — the rewritten sub-queries `route` searched, the grade `crag` gave, which pipeline `agentic` picked and why
-- **Compare all pipelines** — runs the question through all five and has a 70B model rate every retrieved section 0–3 with a one-line verdict, scored by DCG. It rates the *deduplicated union* of sections in a single call, so the judge never sees "pipeline A vs B" — only whether a section answers the question. That removes position bias and costs one call instead of five.
+    subgraph Query["Query time (retrieval/, agent/)"]
+        Q[User question] --> R{search.py<br/>pipeline dispatch}
+        R --> P1[dense]
+        R --> P2[hybrid]
+        R --> P3[rerank]
+        R --> P4[route]
+        R --> P5[crag]
+        R --> P6[agentic]
+        P1 & P2 & P3 & P4 & P5 & P6 --> S[expand_to_parents]
+        S --> T[Full parent sections]
+        T --> U[generate.py]
+        U --> V[Answer + citations]
+    end
+
+    I -.child vectors.-> P1 & P2 & P3 & P4 & P5 & P6
+```
+
+**The core retrieval trick — small-to-big:** only the small ~250-token *child* chunks are embedded and searched. Each child links to its full *parent* section, which is what actually gets handed to the LLM for generation. Children are precise search targets; parents give the model the surrounding context — including caveats a lone sentence would misrepresent. (Example that motivated this: a chunk reading *"you do not have to protect a holding deposit"* is dangerous read alone, safe read inside its full section.)
+
+**Everything is grounded, nothing is generated from open knowledge.** Answers cite the retrieved gov.uk/legislation.gov.uk sections directly, and CRAG can decline to answer if nothing retrieved actually addresses the question.
 
 ---
 
-## How it works, briefly
+## The six retrieval pipelines
 
-Retrieval is **parent-document (small-to-big)**: ~250-token *children* are embedded and searched, but each carries a `parent_id` and the full parent **section** is what the LLM reads — so a fact arrives with its caveats attached. A chunk saying *"you do not have to protect a holding deposit"* is dangerous alone and safe inside its section.
+| Pipeline | What it adds over the previous stage | MRR@5 |
+|---|---|---|
+| `dense` | Plain vector search (baseline) | 0.6599 |
+| `hybrid` | + BM25 keyword search, fused via RRF | 0.5784 |
+| `rerank` | + cross-encoder reranking | 0.6608 |
+| `route` | + LLM query rewriting into multiple search branches | 0.4486 |
+| **`crag`** | + LLM grades the retrieval; escalates to `route` once if poor | **0.6743** |
+| `agentic` | An LLM picks one of the five pipelines per query | 0.6473 |
 
-```
-question
-   ↓
-dense_search ──────────────────────────────→ mode="dense"
-   ↓ + BM25, RRF-fused
-                     ─────────────────────→ mode="hybrid"
-   ↓ + cross-encoder re-scores the pool
-                     ─────────────────────→ mode="rerank"
-   ↓ + LLM grades whether it actually answers
-                     ─────────────────────→ mode="crag"   ← default
-   ↓ grade is poor → escalate ONCE
-transform → N branches → rerank each → RRF → mode="route"
-   ↓
-re-grade → answer, or decline
-```
+CRAG is the best single-pipeline performer measured, and the default for anything a human actually reads (`ask.py`, the web UI) — despite costing ~3.7s vs rerank's ~1.4s — because it's the only pipeline that can decline to answer instead of confidently returning a wrong section.
 
-Every pipeline lives in its own file under `retrieval/` and implements one contract:
-
-```python
-run(question, top_k=5, categories=None, pool=25) -> (parents, trace | None)
-```
-
-To add a pipeline: write `retrieval/<name>.py` with a `run()` of that shape and add one line to `PIPELINES` in `search.py`. Eval, the API and the UI pick it up automatically.
-
-Full detail — build pipeline, the two-grade refusal logic, why each branch is reranked against its own query — is in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+An **oracle ceiling** — the theoretical maximum MRR if a perfect per-query router always picked the best-performing pipeline for that specific query — sits above all of these, and is the benchmark the router work below is measured against.
 
 ---
 
-## Layout
+## Why CRAG wins
+
+Every other scoring stage in this system — cosine similarity, BM25, even the cross-encoder — measures how *closely* a chunk matches a question, not whether it *answers* it. On the 39-question test set, the cross-encoder's top-1 score doesn't separate hits from misses at all:
 
 ```
-build.py       one command: clean -> chunk -> index (add --fetch to refresh)
-retrieval/     store.py (shared model/index/parents) + one file per pipeline
-               + search.py, the dispatcher
-agent/         the LLM call sites: generate, grade, select, review
-api/           FastAPI + a single-page UI with no build step
-ingestion/     fetch → dedupe → clean → chunk → index
-eval/          39-question testset + the metrics harness
-laws/          386 fetched pages, 7 categories — COMMITTED, the pinned corpus
-cleaned/       derived from laws/       ─┐
-chunks/        derived from cleaned/     ├─ gitignored, built locally
-qdrant_data/   derived from chunks/     ─┘
+correct at rank 1 : 6.15 – 9.57
+complete miss      : 6.22 – 9.34
 ```
 
-**Models.** `bge-small-en-v1.5` for embeddings, `ms-marco-MiniLM-L-6-v2` for reranking, Llama-3.1-8B for the cheap decisions (rewrite, grade, select) and Llama-3.3-70B for generation and judging. The small reranker is a deliberate constraint — the development machine repeatedly hit `paging file is too small`, so a 2.3GB reranker was never an option.
+The clearest example: for *"Does my landlord have to protect my deposit?"*, retrieval returns a section on **holding deposits** at rank 1, scoring near the top of the entire dataset — and that section says the landlord does **not** have to protect a holding deposit. Lexically near-identical to the question, semantically the opposite answer. No numeric threshold separates that from a genuine hit.
+
+CRAG's fix: an LLM reads the retrieved sections and grades them `relevant` / not, rather than trusting a similarity score. If the grade is poor, it escalates **once** to the `route` pipeline — deliberately the *weakest* pipeline by raw MRR, chosen because query rewriting gives a genuinely different angle on a missed query, and because escalation is rare (~8% of queries) with zero measured false positives in the grader across two full eval runs. The escalated result is re-graded before being returned, since the whole point of escalation is that it can turn an `irrelevant` verdict into a `relevant` one — the deposit example above is recovered this way.
+
+If the corpus can't answer a question even after escalation, CRAG says so honestly rather than generating a guess.
 
 ---
 
-## Known limits
+## Why the agentic router underperformed
 
-Written down because hiding them is worse than owning them.
+The natural next idea after benchmarking six fixed pipelines is: *have an LLM pick the best pipeline per query.* This was built and measured — the `agentic` pipeline — and it came in at 0.6473, **below** the simple "always use CRAG" baseline (0.6743).
 
-- **3 test questions are missed by every single mode.** Not a coverage gap — the target sections are in the corpus *and* in the candidate pool, at positions 8, 25 and 23. The right *page* ranks top; the wrong *section* of it wins, because gov.uk splits pages by who you are and the questions never say who they are. Fixing this is worth **+0.0811** to every mode.
-- **10 questions `crag` finds but not at rank 1** — worth **+0.1635**, which is *larger* than the entire pipeline-selection headroom that `agentic` was built to chase.
-- **Answer quality is unmeasured.** Every number here measures retrieval. Whether generated answers are faithful to the sections they cite is not yet tested — the largest remaining gap.
-- **Refusal isn't deterministic** (see above).
-- **`category` is a filing artifact, not a semantic label** — a page's category came from which seed list crawled it, so `National Insurance: introduction` sits under `visa` and all Council Tax sits under `housing`. Nothing hard-filters on it.
+**Diagnosed failure mode:** query text alone doesn't carry enough signal to predict which pipeline will win on that specific question. Two lexically similar questions can have very different retrieval difficulty, and an LLM reading only the question text can't reliably tell which pipeline that maps to.
+
+This is being addressed with a **"cheap probe then decide"** router under active design: run dense retrieval first, look at the actual score/confidence distribution of the top results, and use *that retrieval evidence* — not the query text — as the routing signal. Cheap classification signals for the coarse routing decision; LLM calls reserved for genuinely generative or semantic work.
 
 ---
 
-<sub>Built as a learning project. Not legal advice — always confirm on the linked official page.</sub>
+## Evaluation methodology
+
+A custom 39-question harness (`eval/run_eval.py`) computes **MRR@5** (Mean Reciprocal Rank) against hand-labeled expected answer sections, reused as-is across pipeline comparisons and embedding model benchmarks. A separate **comparison panel** runs all pipelines simultaneously on the same query, deduplicates overlapping retrieved chunks, and has a 70B judge LLM rate each unique chunk once — ratings are then mapped back per pipeline, so every pipeline is graded against the same judgments rather than independently.
+
+---
+
+## Project structure
+
+```
+UK-LAW-RAG/
+├── build.py                 # entry point: clean → chunk → index (+ optional --fetch)
+├── ask.py                   # CLI: ask a single question
+├── api/
+│   └── main.py               # FastAPI app (uvicorn api.main:app)
+├── ingestion/
+│   ├── fetch.py               # gov.uk Content API crawler
+│   ├── fetch_nhs.py
+│   ├── sources.py             # seed URLs per category
+│   ├── dedupe.py
+│   ├── clean.py
+│   ├── chunk.py               # small-to-big chunking
+│   └── index.py                # embed children, build Qdrant index
+├── retrieval/
+│   ├── store.py                # shared: model, Qdrant client, parent lookup
+│   ├── dense.py
+│   ├── hybrid.py
+│   ├── rerank.py
+│   ├── route.py
+│   ├── crag.py
+│   ├── agentic.py
+│   ├── transform.py            # LLM query rewriting used by route.py
+│   └── search.py                # pipeline dispatcher
+├── agent/
+│   ├── grade.py                 # LLM-based retrieval grading (used by crag.py)
+│   └── generate.py              # final answer generation
+├── eval/
+│   └── run_eval.py              # 39-question MRR harness
+├── laws/                        # pinned raw corpus (committed)
+├── chunks/                      # children.jsonl / parents.jsonl (generated)
+├── qdrant_data/                 # local Qdrant index (generated)
+├── frontend/                    # static HTML frontend
+├── uv.lock
+└── pyproject.toml
+```
+
+---
+
+## Design decisions & tradeoffs
+
+- **Small-to-big retrieval** — search precise ~250-token children, return their full parent section for generation, so context and caveats survive.
+- **`laws/` is pinned, not live-fetched per query** — every benchmark number in this README is only reproducible because the corpus is frozen. `--fetch` is a deliberate, guarded, opt-in operation.
+- **Dedupe runs before clean** — `clean.py` skips outputs that already exist and never prunes stale ones; deduping after cleaning leaves orphaned cleaned copies of deleted duplicates, which get silently re-indexed.
+- **CRAG escalates to the weakest pipeline (`route`) by design** — works only because escalation is rare and the grader has zero measured false positives; this is explicitly flagged as a decision to revisit if `route`'s standalone performance degrades further.
+- **Embedding constants are duplicated between `ingestion/index.py` and `retrieval/store.py`**, not imported — `ingestion/` scripts run standalone from their own folder by design, so importing across that boundary isn't straightforward. Both files must be updated together when the embedding model changes, or queries and the index land in different vector spaces with no error, just silently degraded retrieval.
+- **LangChain used narrowly** (HTML cleaning, text splitting) — everything else is plain Python, for full control and so every step is explainable in an interview rather than hidden behind a framework abstraction.
+- **Query rewriting always runs** in the pipelines that use it, not conditionally — natural user phrasing and well-formed retrieval queries differ structurally often enough that it isn't worth trying to detect when rewriting is "needed."
+
+---
+
+## Roadmap
+
+- Manually review CRAG failure cases to check whether domain misclassification explains underperformance, before building a top-k domain-widening feature
+- Benchmark open embedding models via HuggingFace's Inference Providers API against the existing 39-question harness
+- "Cheap probe then decide" router: use dense-retrieval score distributions, not query text, as the routing signal
+- Frontend trace/visualisation panel: show which pipeline was selected, sub-queries issued, retrieved chunks per branch, CRAG grades with reasoning, and which chunks survived to generation
+- Deploy via Docker on EC2
+
+---
+
+## License
+
+See [`LICENSE`](./LICENSE) for details.

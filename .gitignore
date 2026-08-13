@@ -29,4 +29,3 @@ qdrant_data/
 # Output from evaluation runs - one JSON file per run. These are working notes,
 # not results worth keeping; anything that backs a claim belongs in README.md.
 eval/results/
-.gitignore

@@ -5,7 +5,6 @@ description = "Agentic RAG over UK gov.uk and NHS guidance for international stu
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "langchain-text-splitters>=0.2.0",
     "requests>=2.31.0",
     "beautifulsoup4>=4.12.0",
     "tiktoken>=0.13.0",
