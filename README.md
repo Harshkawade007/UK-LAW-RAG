@@ -70,7 +70,11 @@ What each step actually does:
 - **`chunk.py`** — splits each page into sections on those headings, then packs each section into ~250-token pieces. This produces **two files**: `parents.jsonl` (the full sections — what the LLM eventually reads) and `children.jsonl` (the small pieces — what actually gets searched; see [small-to-big retrieval](#small-to-big-retrieval-in-detail) below for why they're different sizes).
 - **`index.py`** — turns every child chunk into a 384-number vector and writes it into `qdrant_data/`, the database every search pipeline actually queries.
 
-**Fetching and deduping only need to happen once, and their output (`laws/`) is committed to the repo** — so a fresh clone never has to touch gov.uk or nhs.uk to get a working system. `ingestion/build.py` runs everything from `clean` onward, always in that order — it exists partly because running `clean` before `dedupe` fails *silently* rather than erroring (see [Build time](#build-time) below for exactly what breaks), so a script enforcing the order is safer than three commands typed by hand:
+**Fetching and deduping only need to happen once, and their output (`laws/`) is committed to the repo** — so a fresh clone never has to touch gov.uk or nhs.uk to get a working system. `ingestion/build.py` runs everything from `clean` onward, always in that order — it exists partly because running `clean` before `dedupe` fails *silently* rather than erroring. 
+
+⚠️ **`dedupe` must run before `clean`, or the failure is silent.** `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate `dedupe` was meant to remove. Nothing errors. `ingestion/build.py` enforces the order and prunes orphans after any fetch, which is the main reason it exists rather than three commands run by hand.
+
+So a script enforcing the order is safer than three commands typed by hand:
 
 ```bash
 python ingestion/build.py
@@ -84,7 +88,7 @@ python ingestion/build.py --from chunk    # resume partway (skip clean)
 python ingestion/build.py --fetch         # re-fetch + dedupe first, then clean → chunk → index
 ```
 
-⚠️ **`dedupe` must run before `clean`, or the failure is silent.** `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate `dedupe` was meant to remove. Nothing errors. `ingestion/build.py` enforces the order and prunes orphans after any fetch, which is the main reason it exists rather than three commands run by hand.
+
 
 > ⚠️ **`--fetch` changes the corpus.** All benchmark numbers in this README, and the test set's expected answers, are measured against the pinned `laws/` snapshot. Re-fetching can add, remove, or shift content, which silently invalidates them. `--fetch` prints a warning and asks for confirmation before running — that's intentional, not a bug.
 
@@ -95,8 +99,6 @@ python ingestion/build.py --fetch         # re-fetch + dedupe first, then clean 
 ```bash
 uvicorn api.main:app
 ```
-
-⚠️ **Don't add `--reload` or `--workers > 1`.** The vector database runs embedded, holding a lock on `qdrant_data/`, so a second process fails to start.
 
 Open `http://127.0.0.1:8000` — the same app serves the web UI (`api/static/index.html`) directly, no separate step needed.
 
