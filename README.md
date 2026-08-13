@@ -65,6 +65,7 @@ Turning the raw corpus into something searchable is a five-step pipeline — fet
 What each step actually does:
 
 - **`fetch.py` / `fetch_nhs.py`** — download pages from gov.uk's Content API and scrape nhs.uk's HTML, writing one JSON file per page into `laws/<category>/`. Two different fetchers because the sources are structurally different: one is an API, the other has to be scraped.
+> Two fetchers exist because the sources differ fundamentally: gov.uk has a Content API returning JSON, nhs.uk doesn't and has to be scraped with BeautifulSoup. Both write the same file shape, so cleaning and chunking treat them uniformly. Filenames encode the source path (`student-visa/family-members` → `student-visa__family-members.json`), which is how re-runs know what already exists — fetching is idempotent unless `--force`.
 - **`dedupe.py`** — the same page can get crawled under two categories (e.g. a general money page found by both `banking` and `housing`); this keeps one copy in the most specific category and deletes the rest, so duplicates don't skew search results or the eval scores.
 - **`clean.py`** — strips the raw HTML down to plain text, but keeps section headings as `## ` markers, because that's exactly what the next step splits on.
 - **`chunk.py`** — splits each page into sections on those headings, then packs each section into ~250-token pieces. This produces **two files**: `parents.jsonl` (the full sections — what the LLM eventually reads) and `children.jsonl` (the small pieces — what actually gets searched; see [small-to-big retrieval](#small-to-big-retrieval-in-detail) below for why they're different sizes).
@@ -125,19 +126,13 @@ python -m eval.run_eval all          # every pipeline — reproduces the full ta
 
 **Everything is grounded, nothing is generated from open knowledge.** Answers cite the retrieved gov.uk/nhs.uk sections directly, and CRAG can decline to answer if nothing retrieved actually addresses the question.
 
-### Build time
-
-The pipeline itself — what each step does, and why fetching is already done for you — is walked through in [Build the index](#setup) above. A few things worth knowing beyond that walkthrough:
-
-**Only children are embedded.** Embedding a full parent section was measured to blur retrieval: a long section averages out to a vector that matches everything weakly and nothing precisely. Parents stay in a plain dict (`chunks/parents.jsonl`), looked up by id after a child matches — never embedded, never searched directly.
-
-
-
-Two fetchers exist because the sources differ fundamentally: gov.uk has a Content API returning JSON, nhs.uk doesn't and has to be scraped with BeautifulSoup. Both write the same file shape, so cleaning and chunking treat them uniformly. Filenames encode the source path (`student-visa/family-members` → `student-visa__family-members.json`), which is how re-runs know what already exists — fetching is idempotent unless `--force`.
 
 ### Small-to-big retrieval, in detail
 
 ![Small-to-big retrieval: a question is embedded and matched against small child chunks inside a parent section. Only one child matches, but expand_to_parents() returns the entire parent section, not just the matched chunk, so the LLM sees the full context and any caveats around the fact it matched on.](assets/diagrams/small-to-big.svg)
+
+
+**Only children are embedded.** Embedding a full parent section was measured to blur retrieval: a long section averages out to a vector that matches everything weakly and nothing precisely. Parents stay in a plain dict (`chunks/parents.jsonl`), looked up by id after a child matches — never embedded, never searched directly.
 
 Children are precise enough to match but not safe to read alone: `tenancy-deposit-protection#4` says *"your landlord does not have to protect a holding deposit"* — true of holding deposits, dangerously wrong as an answer about tenancy deposits. The surrounding section carries the caveat.
 
