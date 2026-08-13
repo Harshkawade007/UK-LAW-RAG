@@ -137,24 +137,7 @@ Two fetchers exist because the sources differ fundamentally: gov.uk has a Conten
 
 ### Small-to-big retrieval, in detail
 
-```
-  question ──embed──┐
-                     ↓
-  ┌─────────────────────────────────────┐
-  │  PARENT SECTION                      │
-  │  ┌───────────────────────────────┐   │
-  │  │ child #0   indexed             │   │
-  │  ├───────────────────────────────┤   │
-  │  │ child #1   ← MATCHED           │   │  only this one matched
-  │  ├───────────────────────────────┤   │
-  │  │ child #2   indexed             │   │
-  │  └───────────────────────────────┘   │
-  └─────────────────────────────────────┘
-                     ↓
-        expand_to_parents()
-                     ↓
-      the WHOLE section goes to the LLM
-```
+![Small-to-big retrieval: a question is embedded and matched against small child chunks inside a parent section. Only one child matches, but expand_to_parents() returns the entire parent section, not just the matched chunk, so the LLM sees the full context and any caveats around the fact it matched on.](assets/diagrams/small-to-big.svg)
 
 Children are precise enough to match but not safe to read alone: `tenancy-deposit-protection#4` says *"your landlord does not have to protect a holding deposit"* — true of holding deposits, dangerously wrong as an answer about tenancy deposits. The surrounding section carries the caveat.
 

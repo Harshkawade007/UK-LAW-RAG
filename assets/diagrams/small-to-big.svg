@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="s2b-title s2b-desc">
+<title id="s2b-title">Small-to-big retrieval: one matched chunk expands to its whole section</title>
+<desc id="s2b-desc">Diagram showing a question being embedded and matched against small child chunks inside a parent section. Only one child chunk matches, but expand_to_parents() returns the entire parent section, not just the matched chunk, so the LLM sees the full context and any caveats around the fact it matched on.</desc>
+
+<defs><style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+  <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+  </marker>
+</defs>
+
+<rect width="960" height="600" fill="#f5f5f5"/>
+
+<!-- ===================== ZONE: parent section ===================== -->
+<rect x="220" y="144" width="272" height="288" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<rect x="232" y="148" width="140" height="12" rx="2" fill="#f5f5f5"/>
+<text x="238" y="157" fill="rgba(45,49,66,0.40)" font-size="7" font-family="'Geist Mono', monospace" letter-spacing="0.10em">PARENT SECTION</text>
+
+<!-- ===================== ARROWS ===================== -->
+<g stroke="#4f5d75" stroke-width="1.2" fill="none">
+  <!-- Question -> child #1. Crossing into the zone is fine; zones are background frames. -->
+  <line x1="170" y1="300" x2="232" y2="300" marker-end="url(#arrow)"/>
+  <!-- zone -> expand_to_parents() -->
+  <line x1="492" y1="300" x2="520" y2="300" marker-end="url(#arrow)"/>
+  <!-- expand_to_parents() -> output -->
+  <line x1="674" y1="300" x2="702" y2="300" marker-end="url(#arrow)"/>
+</g>
+
+<!-- "embed" arrow label: masked, 6-10px gap above the line -->
+<rect x="182" y="280" width="38" height="12" rx="2" fill="#f5f5f5"/>
+<text x="201" y="289" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">EMBED</text>
+
+<!-- ===================== NODES ===================== -->
+<!-- Question (input) -->
+<rect x="60" y="276" width="110" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="60" y="276" width="110" height="48" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+<text x="115" y="304" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Question</text>
+
+<!-- child #0 (plain chunk) -->
+<rect x="236" y="184" width="240" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="236" y="184" width="240" height="56" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+<text x="356" y="208" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">child #0</text>
+<text x="356" y="224" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">indexed</text>
+
+<!-- child #1 (FOCAL — matched) -->
+<rect x="236" y="272" width="240" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="236" y="272" width="240" height="56" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+<text x="356" y="296" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">child #1</text>
+<rect x="316" y="304" width="80" height="12" rx="2" fill="rgba(235,108,54,0.55)"/>
+<text x="356" y="313" fill="#ffffff" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">MATCHED</text>
+
+<!-- child #2 (plain chunk) -->
+<rect x="236" y="360" width="240" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="236" y="360" width="240" height="56" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+<text x="356" y="384" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">child #2</text>
+<text x="356" y="400" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">indexed</text>
+
+<!-- expand_to_parents() (backend/step) -->
+<rect x="520" y="276" width="154" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="520" y="276" width="154" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="597" y="304" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">expand_to_parents()</text>
+
+<!-- Output (mirrors Question) -->
+<rect x="702" y="272" width="140" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="702" y="272" width="140" height="56" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+<text x="772" y="296" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Full section</text>
+<text x="772" y="312" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">-&gt; the LLM</text>
+
+<!-- ===================== LEGEND ===================== -->
+<line x1="60" y1="500" x2="900" y2="500" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+<text x="60" y="516" fill="#4f5d75" font-size="8" font-family="'Geist Mono', monospace" letter-spacing="0.14em">LEGEND</text>
+
+<rect x="160" y="506" width="10" height="10" rx="2" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+<text x="176" y="515" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">user-facing</text>
+
+<rect x="320" y="506" width="10" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+<text x="336" y="515" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">indexed chunk</text>
+
+<rect x="480" y="506" width="10" height="10" rx="2" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+<text x="496" y="515" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace">the chunk that matched</text>
+
+</svg>
