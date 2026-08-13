@@ -84,6 +84,8 @@ python ingestion/build.py --from chunk    # resume partway (skip clean)
 python ingestion/build.py --fetch         # re-fetch + dedupe first, then clean → chunk → index
 ```
 
+⚠️ **`dedupe` must run before `clean`, or the failure is silent.** `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate `dedupe` was meant to remove. Nothing errors. `ingestion/build.py` enforces the order and prunes orphans after any fetch, which is the main reason it exists rather than three commands run by hand.
+
 > ⚠️ **`--fetch` changes the corpus.** All benchmark numbers in this README, and the test set's expected answers, are measured against the pinned `laws/` snapshot. Re-fetching can add, remove, or shift content, which silently invalidates them. `--fetch` prints a warning and asks for confirmation before running — that's intentional, not a bug.
 
 ### 4. Run it
@@ -121,17 +123,13 @@ python -m eval.run_eval all          # every pipeline — reproduces the full ta
 
 **Everything is grounded, nothing is generated from open knowledge.** Answers cite the retrieved gov.uk/nhs.uk sections directly, and CRAG can decline to answer if nothing retrieved actually addresses the question.
 
-**The web UI shows the reasoning, not just the answer.** `/chat` returns a `trace` field alongside the answer — the sub-queries `route` actually searched, the grade `crag` gave and whether that triggered a retry, which pipeline `agentic` picked and why — and the page renders it above the sources. This is the only place any of that decision-making is visible from the outside; every other mode returns `trace: null` since it made no decision to show.
-
 ### Build time
 
 The pipeline itself — what each step does, and why fetching is already done for you — is walked through in [Build the index](#setup) above. A few things worth knowing beyond that walkthrough:
 
 **Only children are embedded.** Embedding a full parent section was measured to blur retrieval: a long section averages out to a vector that matches everything weakly and nothing precisely. Parents stay in a plain dict (`chunks/parents.jsonl`), looked up by id after a child matches — never embedded, never searched directly.
 
-**`laws/` is committed; everything downstream of it is gitignored** and rebuilt locally in one command. A full rebuild reproduces `cleaned/` byte-identically and the recorded scores in the table below exactly — verified, not assumed.
 
-⚠️ **`dedupe` must run before `clean`, or the failure is silent.** `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate `dedupe` was meant to remove. Nothing errors. `ingestion/build.py` enforces the order and prunes orphans after any fetch, which is the main reason it exists rather than three commands run by hand.
 
 Two fetchers exist because the sources differ fundamentally: gov.uk has a Content API returning JSON, nhs.uk doesn't and has to be scraped with BeautifulSoup. Both write the same file shape, so cleaning and chunking treat them uniformly. Filenames encode the source path (`student-visa/family-members` → `student-visa__family-members.json`), which is how re-runs know what already exists — fetching is idempotent unless `--force`.
 
