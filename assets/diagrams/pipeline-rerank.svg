@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 176" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="rerank-title rerank-desc">
+<title id="rerank-title">rerank pipeline: a cross-encoder re-scores hybrid's candidates</title>
+<desc id="rerank-desc">Diagram showing the rerank pipeline: hybrid search's pool of candidate chunks is re-scored by a cross-encoder model that reads the question and each chunk together, and the best-scoring chunks expand to their parent sections.</desc>
+<defs><style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+  <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+  </marker>
+</defs>
+<rect width="960" height="176" fill="#f5f5f5"/>
+
+<g stroke="#4f5d75" stroke-width="1.2" fill="none">
+  <line x1="360" y1="88" x2="392" y2="88" marker-end="url(#arrow)"/>
+  <line x1="562" y1="88" x2="594" y2="88" marker-end="url(#arrow)"/>
+</g>
+
+<rect x="210" y="64" width="150" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="210" y="64" width="150" height="48" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+<text x="285" y="88" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">hybrid's candidates</text>
+<text x="285" y="104" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">~25 chunks</text>
+
+<rect x="392" y="58" width="170" height="60" rx="6" fill="#f5f5f5"/>
+<rect x="392" y="58" width="170" height="60" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+<text x="477" y="84" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">cross-encoder</text>
+<text x="477" y="100" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">reads question + chunk together</text>
+
+<rect x="594" y="60" width="150" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="594" y="60" width="150" height="56" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+<text x="669" y="84" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Parent sections</text>
+<text x="669" y="100" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">best-scoring, reordered</text>
+</svg>

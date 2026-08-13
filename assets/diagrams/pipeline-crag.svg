@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="crag-title crag-desc">
+<title id="crag-title">crag pipeline: grade the result, retry once if poor, answer or decline</title>
+<desc id="crag-desc">Diagram showing the crag pipeline: rerank's result is graded by an LLM on whether it answers the question. A good grade answers immediately. A poor grade retries once with the route pipeline, is graded again, and either answers or declines depending on that second grade.</desc>
+<defs><style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap');</style>
+  <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+  </marker>
+</defs>
+<rect width="960" height="340" fill="#f5f5f5"/>
+
+<g stroke="#4f5d75" stroke-width="1.2" fill="none">
+  <!-- Result -> Grade -->
+  <line x1="150" y1="160" x2="190" y2="160" marker-end="url(#arrow)"/>
+  <!-- Grade YES -> Answer (upper path, clears above Route retry and Re-grade) -->
+  <path d="M 255,115 V 56 H 780" marker-end="url(#arrow)"/>
+  <!-- Grade NO -> Route retry -->
+  <line x1="320" y1="160" x2="380" y2="160" marker-end="url(#arrow)"/>
+  <!-- Route retry -> Re-grade -->
+  <line x1="510" y1="160" x2="530" y2="160" marker-end="url(#arrow)"/>
+  <!-- Re-grade YES -> Answer -->
+  <path d="M 595,115 V 72 H 780" marker-end="url(#arrow)"/>
+  <!-- Re-grade NO -> Decline -->
+  <path d="M 595,205 V 284 H 780" marker-end="url(#arrow)"/>
+</g>
+
+<!-- YES / NO labels -->
+<rect x="234" y="88" width="26" height="12" rx="2" fill="#f5f5f5"/>
+<text x="247" y="97" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">YES</text>
+<rect x="330" y="144" width="24" height="12" rx="2" fill="#f5f5f5"/>
+<text x="342" y="153" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">NO</text>
+<rect x="574" y="88" width="26" height="12" rx="2" fill="#f5f5f5"/>
+<text x="587" y="97" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">YES</text>
+<rect x="583" y="230" width="24" height="12" rx="2" fill="#f5f5f5"/>
+<text x="595" y="239" fill="#7a8399" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.06em">NO</text>
+
+<!-- Result -->
+<rect x="40" y="136" width="110" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="40" y="136" width="110" height="48" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+<text x="95" y="160" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">rerank's</text>
+<text x="95" y="175" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">result</text>
+
+<!-- Grade diamond -->
+<polygon points="255,115 320,160 255,205 190,160" fill="#f5f5f5"/>
+<polygon points="255,115 320,160 255,205 190,160" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="255" y="156" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">answers</text>
+<text x="255" y="170" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">it?</text>
+
+<!-- Route retry -->
+<rect x="380" y="136" width="130" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="380" y="136" width="130" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="445" y="157" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">retry with</text>
+<text x="445" y="172" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">route</text>
+
+<!-- Re-grade diamond -->
+<polygon points="595,115 660,160 595,205 530,160" fill="#f5f5f5"/>
+<polygon points="595,115 660,160 595,205 530,160" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="595" y="156" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">answers</text>
+<text x="595" y="170" fill="#2d3142" font-size="11" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">it now?</text>
+
+<!-- Answer (focal — this is the intended outcome) -->
+<rect x="780" y="32" width="130" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="780" y="32" width="130" height="48" rx="6" fill="rgba(235,108,54,0.08)" stroke="#eb6c36" stroke-width="1.2"/>
+<text x="845" y="60" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Answer</text>
+
+<!-- Decline -->
+<rect x="780" y="260" width="130" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="780" y="260" width="130" height="48" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+<text x="845" y="288" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Decline</text>
+
+<text x="480" y="325" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">the retry happens at most once — never a loop</text>
+</svg>

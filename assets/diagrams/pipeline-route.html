@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>route pipeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#f5f5f5; --ink:#2d3142; --muted:#4f5d75; --soft:#7a8399; --rule:rgba(45,49,66,0.12); }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:'Geist',sans-serif; padding:2.5rem 1.5rem; }
+  .wrap { max-width:1000px; margin:0 auto; }
+  .eyebrow { font-family:'Geist Mono',monospace; font-size:8px; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); margin:0 0 0.5rem; }
+  h1 { font-family:'Instrument Serif',serif; font-weight:400; font-size:1.5rem; margin:0 0 1.25rem; }
+  .diagram-container { overflow-x:auto; }
+  svg { display:block; width:100%; height:auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">UK LAW RAG — PIPELINE</p>
+  <h1>route</h1>
+  <div class="diagram-container">
+<svg viewBox="0 0 960 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="route-title route-desc">
+<title id="route-title">route pipeline: rewrite into branches, search each, merge</title>
+<desc id="route-desc">Diagram showing the route pipeline: an LLM rewrites the question into one or more branches, always keeping the original question as branch 0, each branch is searched and reranked independently, and the branches merge by rank before expanding to parent sections.</desc>
+<defs>
+  <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/>
+  </marker>
+</defs>
+<rect width="960" height="360" fill="#f5f5f5"/>
+
+<g stroke="#4f5d75" stroke-width="1.2" fill="none">
+  <!-- Question -> transform() -->
+  <line x1="140" y1="180" x2="172" y2="180" marker-end="url(#arrow)"/>
+
+  <!-- transform() -> branch 0 (up) -->
+  <path d="M 312,166 H 322 Q 330,166 330,158 V 112 Q 330,104 338,104 H 344" marker-end="url(#arrow)"/>
+  <!-- transform() -> branch 1 (straight) -->
+  <line x1="312" y1="180" x2="344" y2="180" marker-end="url(#arrow)"/>
+  <!-- transform() -> branch 2 (down) -->
+  <path d="M 312,194 H 322 Q 330,194 330,202 V 248 Q 330,256 338,256 H 344" marker-end="url(#arrow)"/>
+
+  <!-- branch 0 -> merge -->
+  <path d="M 514,104 H 524 Q 532,104 532,112 V 158 Q 532,166 540,166 H 546" marker-end="url(#arrow)"/>
+  <!-- branch 1 -> merge -->
+  <line x1="514" y1="180" x2="546" y2="180" marker-end="url(#arrow)"/>
+  <!-- branch 2 -> merge -->
+  <path d="M 514,256 H 524 Q 532,256 532,248 V 202 Q 532,194 540,194 H 546" marker-end="url(#arrow)"/>
+
+  <!-- merge -> Sections -->
+  <line x1="666" y1="180" x2="698" y2="180" marker-end="url(#arrow)"/>
+</g>
+
+<rect x="40" y="156" width="100" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="40" y="156" width="100" height="48" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+<text x="90" y="184" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Question</text>
+
+<rect x="172" y="156" width="140" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="172" y="156" width="140" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="242" y="177" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">transform()</text>
+<text x="242" y="192" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">one LLM call</text>
+
+<rect x="344" y="82" width="170" height="44" rx="6" fill="#f5f5f5"/>
+<rect x="344" y="82" width="170" height="44" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="429" y="100" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">branch 0</text>
+<text x="429" y="115" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">original question</text>
+
+<rect x="344" y="158" width="170" height="44" rx="6" fill="#f5f5f5"/>
+<rect x="344" y="158" width="170" height="44" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="429" y="176" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">branch 1</text>
+<text x="429" y="191" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">rewritten</text>
+
+<rect x="344" y="234" width="170" height="44" rx="6" fill="#f5f5f5"/>
+<rect x="344" y="234" width="170" height="44" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="429" y="252" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">branch 2</text>
+<text x="429" y="267" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">rewritten, up to 3</text>
+
+<rect x="546" y="156" width="120" height="48" rx="6" fill="#f5f5f5"/>
+<rect x="546" y="156" width="120" height="48" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+<text x="606" y="177" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">RRF merge</text>
+<text x="606" y="192" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">by rank</text>
+
+<rect x="698" y="152" width="150" height="56" rx="6" fill="#f5f5f5"/>
+<rect x="698" y="152" width="150" height="56" rx="6" fill="rgba(79,93,117,0.10)" stroke="#7a8399" stroke-width="1"/>
+<text x="773" y="176" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Parent sections</text>
+<text x="773" y="192" fill="#4f5d75" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">merged across branches</text>
+
+<!-- each branch is independently searched + reranked; noted once rather than drawn 3x -->
+<text x="429" y="304" fill="#7a8399" font-size="9" font-family="'Geist Mono', monospace" text-anchor="middle">each branch is searched and reranked on its own before merging</text>
+</svg>
+  </div>
+</div>
+</body>
+</html>

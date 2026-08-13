@@ -12,12 +12,10 @@ Six retrieval strategies are implemented and empirically benchmarked against a 3
 
 - [Setup](#setup)
 - [Architecture](#architecture)
-  - [Build time](#build-time)
   - [Small-to-big retrieval, in detail](#small-to-big-retrieval-in-detail)
-  - [Execution order: nested, not parallel](#execution-order-nested-not-parallel)
   - [Inside `route`](#inside-route)
   - [Module layout and the import contract](#module-layout-and-the-import-contract)
-- [The six retrieval pipelines](#the-six-retrieval-pipelines)
+- [The 6 pipelines](#the-6-pipelines)
 - [Why CRAG wins](#why-crag-wins)
 - [Why the agentic router underperformed](#why-the-agentic-router-underperformed)
 - [Evaluation methodology](#evaluation-methodology)
@@ -64,18 +62,15 @@ Turning the raw corpus into something searchable is a five-step pipeline — fet
 
 What each step actually does:
 
-- **`fetch.py` / `fetch_nhs.py`** — download pages from gov.uk's Content API and scrape nhs.uk's HTML, writing one JSON file per page into `laws/<category>/`. Two different fetchers because the sources are structurally different: one is an API, the other has to be scraped.
-> Two fetchers exist because the sources differ fundamentally: gov.uk has a Content API returning JSON, nhs.uk doesn't and has to be scraped with BeautifulSoup. Both write the same file shape, so cleaning and chunking treat them uniformly. Filenames encode the source path (`student-visa/family-members` → `student-visa__family-members.json`), which is how re-runs know what already exists — fetching is idempotent unless `--force`.
+- **`fetch.py` / `fetch_nhs.py`** — download pages from gov.uk's Content API and scrape nhs.uk's HTML, writing one JSON file per page into `laws/<category>/`. Two different fetchers because the sources are structurally different: one is an API, the other has to be scraped. Both write the same file shape, so cleaning and chunking treat them uniformly. Filenames encode the source path (`student-visa/family-members` → `student-visa__family-members.json`), which is how re-runs know what already exists — fetching is idempotent unless `--force`.
 - **`dedupe.py`** — the same page can get crawled under two categories (e.g. a general money page found by both `banking` and `housing`); this keeps one copy in the most specific category and deletes the rest, so duplicates don't skew search results or the eval scores.
 - **`clean.py`** — strips the raw HTML down to plain text, but keeps section headings as `## ` markers, because that's exactly what the next step splits on.
 - **`chunk.py`** — splits each page into sections on those headings, then packs each section into ~250-token pieces. This produces **two files**: `parents.jsonl` (the full sections — what the LLM eventually reads) and `children.jsonl` (the small pieces — what actually gets searched; see [small-to-big retrieval](#small-to-big-retrieval-in-detail) below for why they're different sizes).
 - **`index.py`** — turns every child chunk into a 384-number vector and writes it into `qdrant_data/`, the database every search pipeline actually queries.
 
-**Fetching and deduping only need to happen once, and their output (`laws/`) is committed to the repo** — so a fresh clone never has to touch gov.uk or nhs.uk to get a working system. `ingestion/build.py` runs everything from `clean` onward, always in that order — it exists partly because running `clean` before `dedupe` fails *silently* rather than erroring. 
+**Fetching and deduping only need to happen once, and their output (`laws/`) is committed to the repo** — so a fresh clone never has to touch gov.uk or nhs.uk to get a working system. `ingestion/build.py` runs everything from `clean` onward, always in that order.
 
-⚠️ **`dedupe` must run before `clean`, or the failure is silent.** `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate `dedupe` was meant to remove. Nothing errors. `ingestion/build.py` enforces the order and prunes orphans after any fetch, which is the main reason it exists rather than three commands run by hand.
-
-So a script enforcing the order is safer than three commands typed by hand:
+⚠️ **`dedupe` must run before `clean`, or the failure is silent.** `clean.py` skips any output that already exists and never prunes stale ones — so cleaning first leaves an orphan in `cleaned/` that `chunk.py` then indexes, reintroducing the exact duplicate `dedupe` was meant to remove. Nothing errors. `ingestion/build.py` enforces the order and prunes orphans after any fetch, which is why a script enforcing the order is safer than three commands typed by hand:
 
 ```bash
 python ingestion/build.py
@@ -88,8 +83,6 @@ python ingestion/build.py --force         # rebuild ignoring existing outputs
 python ingestion/build.py --from chunk    # resume partway (skip clean)
 python ingestion/build.py --fetch         # re-fetch + dedupe first, then clean → chunk → index
 ```
-
-
 
 > ⚠️ **`--fetch` changes the corpus.** All benchmark numbers in this README, and the test set's expected answers, are measured against the pinned `laws/` snapshot. Re-fetching can add, remove, or shift content, which silently invalidates them. `--fetch` prints a warning and asks for confirmation before running — that's intentional, not a bug.
 
@@ -137,34 +130,6 @@ python -m eval.run_eval all          # every pipeline — reproduces the full ta
 Children are precise enough to match but not safe to read alone: `tenancy-deposit-protection#4` says *"your landlord does not have to protect a holding deposit"* — true of holding deposits, dangerously wrong as an answer about tenancy deposits. The surrounding section carries the caveat.
 
 `top_k` counts **unique parents**, not child hits. Several children often share one section, so a pool of 25 children can collapse to far fewer results — which is also why the reranker scores the *whole* pool and lets `expand_to_parents()` do the cutting. Truncating children first can yield fewer than `top_k` sections.
-
-### Execution order: nested, not parallel
-
-Each mode runs every stage above its exit point — `rerank` pays for dense and BM25 first, it doesn't replace them:
-
-```
-question
-   ↓
-[dense]  embed → Qdrant law_children ─────────────────────→ mode="dense"
-   ↓
-[+ BM25 → rrf_fuse k=60] ─────────────────────────────────→ mode="hybrid"
-   ↓
-[+ cross-encoder re-scores the whole pool] ───────────────→ mode="rerank"
-   ↓
-[+ grade_retrieval — does this ANSWER the question?] ─────→ mode="crag"   ← default
-   ↓
-   │ only when the grade is poor
-   ↓
-[transform → N branches → rerank each → RRF] ─────────────→ mode="route"
-   ↓
-[re-grade the new sections]
-   ↓
-answer, or decline
-
-mode="agentic" — one LLM call picks any ONE of the five above and runs it.
-```
-
-`route` is the one mode that doesn't sit on this spine — it replaces the single search with several reranked branches. It's also where `crag` escalates to.
 
 ### Inside `route`
 
@@ -242,7 +207,9 @@ store ← dense ← hybrid ← rerank ← { route, crag } ← search
 
 ---
 
-## The six retrieval pipelines
+## The 6 pipelines
+
+Each one is the previous one plus a stage. Here's what each stage actually does.
 
 | Pipeline | What it adds over the previous stage | MRR@5 |
 |---|---|---|
@@ -255,7 +222,43 @@ store ← dense ← hybrid ← rerank ← { route, crag } ← search
 
 CRAG is the best single-pipeline performer measured, and the default for anything a human actually reads (`ask.py`, the web UI) — despite costing ~3.7s vs rerank's ~0.8s (warm; both are dominated by their LLM round-trip or lack of one, not local compute) — because it's the only pipeline that can decline to answer instead of confidently returning a wrong section.
 
-An **oracle ceiling** — the theoretical maximum MRR if a perfect per-query router always picked the best-performing pipeline for that specific query — sits above all of these, and is the benchmark the router work below is measured against.
+An **oracle ceiling** — the theoretical maximum MRR if a perfect per-query router always picked the best-performing pipeline for that specific query — sits above all of these, and is the benchmark the router work is measured against.
+
+### `dense`
+
+Turns the question into a list of numbers and finds the chunks whose numbers point in a similar direction. No LLM calls, and fast — but it can blur together things that read alike and mean different things, like a Student visa and a Child Student visa.
+
+![dense pipeline: the question is embedded, searched against Qdrant, and the nearest child chunks expand to their parent sections.](assets/diagrams/pipeline-dense.svg)
+
+### `hybrid`
+
+Runs `dense` and a keyword search (BM25) side by side, then merges the two ranked lists. Catches exact terms and numbers that dense search smooths over — but keyword search can be confidently wrong, which is why this alone sometimes scores *worse* than dense on its own.
+
+![hybrid pipeline: dense search and BM25 keyword search run side by side, then merge by rank before expanding to sections.](assets/diagrams/pipeline-hybrid.svg)
+
+### `rerank`
+
+Takes `hybrid`'s shortlist and re-reads every candidate against the question with a cross-encoder — a model that looks at the question and the chunk *together*, instead of comparing them from a distance. Slower, but this is what actually tells two similarly-worded options apart.
+
+![rerank pipeline: hybrid's pool of candidates is re-scored by a cross-encoder that reads the question and each chunk together, then the best-scoring ones expand to sections.](assets/diagrams/pipeline-rerank.svg)
+
+### `route`
+
+One cheap LLM call rewrites the question into the wording gov.uk actually uses, and splits it into separate questions if it's genuinely asking about two things. Each rewritten question is searched and reranked on its own, then the results are merged. Powerful in theory — measured, it's the weakest pipeline, since rewrites don't always help casual phrasing. See [Inside `route`](#inside-route) below for exactly why.
+
+![route pipeline: an LLM rewrites the question into one or more branches, each is searched and reranked independently, then the branches merge before expanding to sections.](assets/diagrams/pipeline-route.svg)
+
+### `crag`
+
+Runs `rerank`, then has an LLM check whether the result actually *answers* the question rather than just resembling it. If the check comes back weak, it retries once with `route`. This is the only pipeline that can honestly say "I don't know" instead of guessing — and it's the default everywhere a person reads the output. See [Why CRAG wins](#why-crag-wins) below for the full mechanics.
+
+![crag pipeline: rerank's result is graded by an LLM; a good grade answers immediately, a poor grade escalates once to route and re-grades before answering or declining.](assets/diagrams/pipeline-crag.svg)
+
+### `agentic`
+
+One LLM call reads the question and picks which of the other five pipelines to run. The idea was to get the best of all five automatically — measured, it actually scored *worse* than simply always using `crag`, and is kept as a documented example of an idea that didn't pan out. See [Why the agentic router underperformed](#why-the-agentic-router-underperformed) below for the full story.
+
+![agentic pipeline: an LLM reads the question and picks one of the other five pipelines to run.](assets/diagrams/pipeline-agentic.svg)
 
 ---
 
