@@ -60,25 +60,7 @@ DEEPINFRA_TOKEN=your_token_here
 
 Turning the raw corpus into something searchable is a five-step pipeline — fetch pages, remove duplicates, strip them to plain text, split them into pieces, then embed and store those pieces:
 
-```mermaid
-flowchart TD
-    subgraph committed["Already done for you — laws/ is committed to the repo"]
-        gov[("gov.uk<br/>Content API")] --> fetchpy["fetch.py"]
-        nhs[("nhs.uk<br/>pages")] --> fetchnhs["fetch_nhs.py"]
-        fetchpy --> laws["laws/ — 386 pages<br/>across 7 categories"]
-        fetchnhs --> laws
-        laws --> dedupe["dedupe.py --apply<br/>drops pages saved under two categories"]
-    end
-
-    subgraph buildstep["What 'ingestion/build.py' runs"]
-        dedupe --> clean["clean.py<br/>HTML to plain text"]
-        clean --> chunk["chunk.py<br/>splits into sections, then chunks"]
-        chunk --> parents["chunks/parents.jsonl<br/>4,374 full sections"]
-        chunk --> children["chunks/children.jsonl<br/>4,721 small pieces"]
-        children --> index["index.py<br/>embeds each piece,<br/>writes vectors"]
-        index --> qdrant[("qdrant_data/<br/>the searchable index")]
-    end
-```
+![Pipeline diagram: fetching gov.uk and NHS pages into laws/ and deduplicating them is already done and committed to the repo; cleaning, chunking into parent sections and child pieces, and embedding into Qdrant is what ingestion/build.py runs.](assets/diagrams/build-index-pipeline.svg)
 
 What each step actually does:
 
