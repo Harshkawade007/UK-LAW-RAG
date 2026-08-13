@@ -251,19 +251,7 @@ Every pipeline module implements one contract:
 run(question, top_k=5, categories=None, pool=25) -> (parents, trace | None)
 ```
 
-`trace` is what the pipeline *decided*, or `None` if it decided nothing. To add a pipeline: write `retrieval/<name>.py` with a `run()` of that shape and add one line to `PIPELINES` in `search.py` — the eval harness, the API and the UI all pick it up from `MODES` automatically.
 
-Import direction is strictly one-way:
-
-```
-store ← dense ← hybrid ← rerank ← { route, crag } ← search
-                                                       ↑
-                                     agentic ──lazy────┘
-```
-
-`store.py` imports nothing from `retrieval/`, which is what makes the chain possible — without it, `dense.py` would need the Qdrant client from `search.py` while `search.py` imports `dense.py` to dispatch to it, and neither could load. `agentic.py` is the one exception: it needs the dispatcher itself, so it imports `search.py` inside `run()` rather than at module level, which is the only thing keeping the import cycle from breaking.
-
-⚠️ **`MODEL_NAME`, `COLLECTION`, `QUERY_PREFIX` and the vector dimensions are duplicated** between `retrieval/store.py` and `ingestion/index.py`, deliberately — so the build side never has to import the query side. Change one file without the other and nothing errors; a query just lands in a different vector space than the index, and results quietly turn to noise.
 
 
 
