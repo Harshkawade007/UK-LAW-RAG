@@ -131,41 +131,6 @@ Children are precise enough to match but not safe to read alone: `tenancy-deposi
 
 `top_k` counts **unique parents**, not child hits. Several children often share one section, so a pool of 25 children can collapse to far fewer results — which is also why the reranker scores the *whole* pool and lets `expand_to_parents()` do the cutting. Truncating children first can yield fewer than `top_k` sections.
 
-### Module layout and the import contract
-
-```
-retrieval/
-  store.py      shared: embedding model, Qdrant client, parents.jsonl,
-                embed_query(), expand_to_parents(), close()
-  dense.py      pipeline 1
-  hybrid.py     pipeline 2      imports dense
-  rerank.py     pipeline 3      imports hybrid
-  route.py      pipeline 4      imports hybrid + rerank + transform
-  crag.py       pipeline 5      imports rerank + route + agent.grade
-  agentic.py    the selector    imports search.py LAZILY
-  transform.py  the LLM rewrite call route.py uses
-  search.py     the dispatcher — PIPELINES dict, retrieve, retrieve_traced
-```
-
-Every pipeline module implements one contract:
-
-```python
-run(question, top_k=5, categories=None, pool=25) -> (parents, trace | None)
-```
-
-`trace` is what the pipeline *decided*, or `None` if it decided nothing. To add a pipeline: write `retrieval/<name>.py` with a `run()` of that shape and add one line to `PIPELINES` in `search.py` — the eval harness, the API and the UI all pick it up from `MODES` automatically.
-
-Import direction is strictly one-way:
-
-```
-store ← dense ← hybrid ← rerank ← { route, crag } ← search
-                                                       ↑
-                                     agentic ──lazy────┘
-```
-
-`store.py` imports nothing from `retrieval/`, which is what makes the chain possible — without it, `dense.py` would need the Qdrant client from `search.py` while `search.py` imports `dense.py` to dispatch to it, and neither could load. `agentic.py` is the one exception: it needs the dispatcher itself, so it imports `search.py` inside `run()` rather than at module level, which is the only thing keeping the import cycle from breaking.
-
-⚠️ **`MODEL_NAME`, `COLLECTION`, `QUERY_PREFIX` and the vector dimensions are duplicated** between `retrieval/store.py` and `ingestion/index.py`, deliberately — so the build side never has to import the query side. Change one file without the other and nothing errors; a query just lands in a different vector space than the index, and results quietly turn to noise.
 
 ---
 
@@ -210,18 +175,6 @@ One cheap LLM call rewrites the question into the wording gov.uk actually uses, 
 
 ![route pipeline: an LLM rewrites the question into one or more branches, each is searched and reranked independently, then the branches merge before expanding to sections.](assets/diagrams/pipeline-route.svg)
 
-### `crag`
-
-Runs `rerank`, then has an LLM check whether the result actually *answers* the question rather than just resembling it. If the check comes back weak, it retries once with `route`. This is the only pipeline that can honestly say "I don't know" instead of guessing — and it's the default everywhere a person reads the output. See [Why CRAG wins](#why-crag-wins) below for the full mechanics.
-
-![crag pipeline: rerank's result is graded by an LLM; a good grade answers immediately, a poor grade escalates once to route and re-grades before answering or declining.](assets/diagrams/pipeline-crag.svg)
-
-### `agentic`
-
-One LLM call reads the question and picks which of the other five pipelines to run. The idea was to get the best of all five automatically — measured, it actually scored *worse* than simply always using `crag`, and is kept as a documented example of an idea that didn't pan out. See [Why the agentic router underperformed](#why-the-agentic-router-underperformed) below for the full story.
-
-![agentic pipeline: an LLM reads the question and picks one of the other five pipelines to run.](assets/diagrams/pipeline-agentic.svg)
-
 ---
 
 ## Inside `route`
@@ -261,6 +214,58 @@ Three invariants — break any of them and it silently degrades:
 3. **`transform()` returning `[]` is a valid outcome, not an error.** A bad token, a timeout or malformed JSON leaves exactly one branch, which is precisely `mode="rerank"`. Every LLM call site in this system degrades the same way: a broken model falls back to previous behaviour, it never breaks the search.
 
 **What was actually measured:** `route` is the weakest pipeline (MRR 0.4486, hit-rate 25/37 against rerank's 31/37) — colloquial phrasing frequently pushes the rewrite *away* from corpus vocabulary or over-splits it. It's also **not deterministic**: despite `temperature=0`, DeepInfra makes no determinism guarantee, so the same question yields a different number of sub-queries run to run. Over three identical runs its MRR spanned 0.6520–0.7078 — a spread larger than most effects being measured. It's kept for two concrete reasons: `crag` escalates to it, and it's the only pipeline that finds 2 of the test questions at all.
+
+### `crag`
+
+Runs `rerank`, then has an LLM check whether the result actually *answers* the question rather than just resembling it. If the check comes back weak, it retries once with `route`. This is the only pipeline that can honestly say "I don't know" instead of guessing — and it's the default everywhere a person reads the output. See [Why CRAG wins](#why-crag-wins) below for the full mechanics.
+
+![crag pipeline: rerank's result is graded by an LLM; a good grade answers immediately, a poor grade escalates once to route and re-grades before answering or declining.](assets/diagrams/pipeline-crag.svg)
+
+### `agentic`
+
+One LLM call reads the question and picks which of the other five pipelines to run. The idea was to get the best of all five automatically — measured, it actually scored *worse* than simply always using `crag`, and is kept as a documented example of an idea that didn't pan out. See [Why the agentic router underperformed](#why-the-agentic-router-underperformed) below for the full story.
+
+![agentic pipeline: an LLM reads the question and picks one of the other five pipelines to run.](assets/diagrams/pipeline-agentic.svg)
+
+---
+
+### Module layout and the import contract
+
+```
+retrieval/
+  store.py      shared: embedding model, Qdrant client, parents.jsonl,
+                embed_query(), expand_to_parents(), close()
+  dense.py      pipeline 1
+  hybrid.py     pipeline 2      imports dense
+  rerank.py     pipeline 3      imports hybrid
+  route.py      pipeline 4      imports hybrid + rerank + transform
+  crag.py       pipeline 5      imports rerank + route + agent.grade
+  agentic.py    the selector    imports search.py LAZILY
+  transform.py  the LLM rewrite call route.py uses
+  search.py     the dispatcher — PIPELINES dict, retrieve, retrieve_traced
+```
+
+Every pipeline module implements one contract:
+
+```python
+run(question, top_k=5, categories=None, pool=25) -> (parents, trace | None)
+```
+
+`trace` is what the pipeline *decided*, or `None` if it decided nothing. To add a pipeline: write `retrieval/<name>.py` with a `run()` of that shape and add one line to `PIPELINES` in `search.py` — the eval harness, the API and the UI all pick it up from `MODES` automatically.
+
+Import direction is strictly one-way:
+
+```
+store ← dense ← hybrid ← rerank ← { route, crag } ← search
+                                                       ↑
+                                     agentic ──lazy────┘
+```
+
+`store.py` imports nothing from `retrieval/`, which is what makes the chain possible — without it, `dense.py` would need the Qdrant client from `search.py` while `search.py` imports `dense.py` to dispatch to it, and neither could load. `agentic.py` is the one exception: it needs the dispatcher itself, so it imports `search.py` inside `run()` rather than at module level, which is the only thing keeping the import cycle from breaking.
+
+⚠️ **`MODEL_NAME`, `COLLECTION`, `QUERY_PREFIX` and the vector dimensions are duplicated** between `retrieval/store.py` and `ingestion/index.py`, deliberately — so the build side never has to import the query side. Change one file without the other and nothing errors; a query just lands in a different vector space than the index, and results quietly turn to noise.
+
+
 
 ---
 
