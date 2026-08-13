@@ -12,6 +12,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Kept local for now - undecided whether this goes public. Was tracked since
+# the first commit (git history still has it); this only stops future commits.
+CLAUDE.md
+
 
 # ---------------------------------------------------------------------------
 # Built files. All three are rebuilt from laws/, which IS in the repository:
