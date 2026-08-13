@@ -13,9 +13,9 @@ Six retrieval strategies are implemented and empirically benchmarked against a 3
 - [Setup](#setup)
 - [Architecture](#architecture)
   - [Small-to-big retrieval, in detail](#small-to-big-retrieval-in-detail)
-  - [Inside `route`](#inside-route)
   - [Module layout and the import contract](#module-layout-and-the-import-contract)
 - [The 6 pipelines](#the-6-pipelines)
+- [Inside `route`](#inside-route)
 - [Why CRAG wins](#why-crag-wins)
 - [Why the agentic router underperformed](#why-the-agentic-router-underperformed)
 - [Evaluation methodology](#evaluation-methodology)
@@ -131,44 +131,6 @@ Children are precise enough to match but not safe to read alone: `tenancy-deposi
 
 `top_k` counts **unique parents**, not child hits. Several children often share one section, so a pool of 25 children can collapse to far fewer results — which is also why the reranker scores the *whole* pool and lets `expand_to_parents()` do the cutting. Truncating children first can yield fewer than `top_k` sections.
 
-### Inside `route`
-
-```
-question
-   │
-   ├─ transform()   ONE cheap LLM call (Llama-3.1-8B, ~2.4s)
-   │                rewrites into gov.uk wording
-   │                splits ONLY if genuinely 2+ topics (max 3)
-   │                tags each piece with categories
-   │                any failure → returns [] → degrades to plain rerank
-   ↓
-branches
-   ├─ branch 0   ORIGINAL query, NO category filter    ← ALWAYS present
-   ├─ branch 1   rewritten query   [housing]
-   └─ branch N   rewritten query   [...]
-   ↓
-each branch runs INDEPENDENTLY and finishes before merging:
-   │
-   │   hybrid search (dense + BM25 → RRF) → pool of children     ~47ms
-   │        ↓
-   │   rerank against ITS OWN query (cross-encoder)             ~900ms
-   │        ↓
-   │   one ranked list
-   ↓
-[merge]  RRF across the branch RANK POSITIONS  (k=60, cap MERGE_POOL=30)
-   │     ranks, not scores — scores from different queries aren't comparable
-   ↓
-expand_to_parents → top 5 sections
-```
-
-Three invariants — break any of them and it silently degrades:
-
-1. **Branch 0 exists because category labels lie.** A page's category came from which crawl list found it, not what it's about. `National Insurance: introduction` is filed under `visa`; every Council Tax page is under `housing`. Ask *"how do I get a National Insurance number"* and the LLM confidently routes to `tax_ni`, which would bury the NI intro page — branch 0 searches everything unfiltered, and it came back at rank 2 anyway. Routing may reorder results; it can never delete them.
-2. **Rerank per branch, not once at the end.** Merging first and reranking once against the user's question reintroduces the exact vocabulary gap the rewrite exists to close. For *"can I work extra during reading week?"* the rewrite correctly pulls in `Student visa > What you can and cannot do`, then scoring it against "reading week" ranks it below `Maximum weekly working hours` — unrelated, but it shares the words work/hours/week. Each branch is judged against the query that produced it; branch 0 is the original, so the user's wording still gets a full vote, just not a veto.
-3. **`transform()` returning `[]` is a valid outcome, not an error.** A bad token, a timeout or malformed JSON leaves exactly one branch, which is precisely `mode="rerank"`. Every LLM call site in this system degrades the same way: a broken model falls back to previous behaviour, it never breaks the search.
-
-**What was actually measured:** `route` is the weakest pipeline (MRR 0.4486, hit-rate 25/37 against rerank's 31/37) — colloquial phrasing frequently pushes the rewrite *away* from corpus vocabulary or over-splits it. It's also **not deterministic**: despite `temperature=0`, DeepInfra makes no determinism guarantee, so the same question yields a different number of sub-queries run to run. Over three identical runs its MRR spanned 0.6520–0.7078 — a spread larger than most effects being measured. It's kept for two concrete reasons: `crag` escalates to it, and it's the only pipeline that finds 2 of the test questions at all.
-
 ### Module layout and the import contract
 
 ```
@@ -259,6 +221,46 @@ Runs `rerank`, then has an LLM check whether the result actually *answers* the q
 One LLM call reads the question and picks which of the other five pipelines to run. The idea was to get the best of all five automatically — measured, it actually scored *worse* than simply always using `crag`, and is kept as a documented example of an idea that didn't pan out. See [Why the agentic router underperformed](#why-the-agentic-router-underperformed) below for the full story.
 
 ![agentic pipeline: an LLM reads the question and picks one of the other five pipelines to run.](assets/diagrams/pipeline-agentic.svg)
+
+---
+
+## Inside `route`
+
+```
+question
+   │
+   ├─ transform()   ONE cheap LLM call (Llama-3.1-8B, ~2.4s)
+   │                rewrites into gov.uk wording
+   │                splits ONLY if genuinely 2+ topics (max 3)
+   │                tags each piece with categories
+   │                any failure → returns [] → degrades to plain rerank
+   ↓
+branches
+   ├─ branch 0   ORIGINAL query, NO category filter    ← ALWAYS present
+   ├─ branch 1   rewritten query   [housing]
+   └─ branch N   rewritten query   [...]
+   ↓
+each branch runs INDEPENDENTLY and finishes before merging:
+   │
+   │   hybrid search (dense + BM25 → RRF) → pool of children     ~47ms
+   │        ↓
+   │   rerank against ITS OWN query (cross-encoder)             ~900ms
+   │        ↓
+   │   one ranked list
+   ↓
+[merge]  RRF across the branch RANK POSITIONS  (k=60, cap MERGE_POOL=30)
+   │     ranks, not scores — scores from different queries aren't comparable
+   ↓
+expand_to_parents → top 5 sections
+```
+
+Three invariants — break any of them and it silently degrades:
+
+1. **Branch 0 exists because category labels lie.** A page's category came from which crawl list found it, not what it's about. `National Insurance: introduction` is filed under `visa`; every Council Tax page is under `housing`. Ask *"how do I get a National Insurance number"* and the LLM confidently routes to `tax_ni`, which would bury the NI intro page — branch 0 searches everything unfiltered, and it came back at rank 2 anyway. Routing may reorder results; it can never delete them.
+2. **Rerank per branch, not once at the end.** Merging first and reranking once against the user's question reintroduces the exact vocabulary gap the rewrite exists to close. For *"can I work extra during reading week?"* the rewrite correctly pulls in `Student visa > What you can and cannot do`, then scoring it against "reading week" ranks it below `Maximum weekly working hours` — unrelated, but it shares the words work/hours/week. Each branch is judged against the query that produced it; branch 0 is the original, so the user's wording still gets a full vote, just not a veto.
+3. **`transform()` returning `[]` is a valid outcome, not an error.** A bad token, a timeout or malformed JSON leaves exactly one branch, which is precisely `mode="rerank"`. Every LLM call site in this system degrades the same way: a broken model falls back to previous behaviour, it never breaks the search.
+
+**What was actually measured:** `route` is the weakest pipeline (MRR 0.4486, hit-rate 25/37 against rerank's 31/37) — colloquial phrasing frequently pushes the rewrite *away* from corpus vocabulary or over-splits it. It's also **not deterministic**: despite `temperature=0`, DeepInfra makes no determinism guarantee, so the same question yields a different number of sub-queries run to run. Over three identical runs its MRR spanned 0.6520–0.7078 — a spread larger than most effects being measured. It's kept for two concrete reasons: `crag` escalates to it, and it's the only pipeline that finds 2 of the test questions at all.
 
 ---
 
