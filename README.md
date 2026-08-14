@@ -361,27 +361,6 @@ UK-LAW-RAG/
 
 ---
 
-## Design decisions & tradeoffs
-
-- **Small-to-big retrieval** — search precise ~250-token children, return their full parent section for generation, so context and caveats survive.
-- **`laws/` is pinned, not live-fetched per query** — every benchmark number in this README is only reproducible because the corpus is frozen. `--fetch` is a deliberate, guarded, opt-in operation.
-- **Dedupe runs before clean** — `clean.py` skips outputs that already exist and never prunes stale ones; deduping after cleaning leaves orphaned cleaned copies of deleted duplicates, which get silently re-indexed.
-- **CRAG escalates to the weakest pipeline (`route`) by design** — works only because escalation is rare and the grader has zero measured false positives; this is explicitly flagged as a decision to revisit if `route`'s standalone performance degrades further.
-- **Embedding constants are duplicated between `ingestion/index.py` and `retrieval/store.py`**, not imported — `ingestion/` scripts run standalone from their own folder by design, so importing across that boundary isn't straightforward. Both files must be updated together when the embedding model changes, or queries and the index land in different vector spaces with no error, just silently degraded retrieval.
-- **No LangChain, no agent framework** — HTML cleaning is BeautifulSoup, chunking and every retrieval pipeline are hand-written. Slower to build than reaching for a framework, but every step is explainable rather than hidden behind an abstraction.
-- **Query rewriting always runs** in the pipelines that use it, not conditionally — natural user phrasing and well-formed retrieval queries differ structurally often enough that it isn't worth trying to detect when rewriting is "needed."
-
----
-
-## Roadmap
-
-- Manually review CRAG failure cases to check whether domain misclassification explains underperformance, before building a top-k domain-widening feature
-- Benchmark open embedding models via HuggingFace's Inference Providers API against the existing 39-question harness
-- Measure answer faithfulness, not just retrieval — every number in this README scores retrieval; whether generated answers stay faithful to their cited sections is untested
-- Deploy via Docker on EC2
-
----
-
 ## License
 
 See [`LICENSE`](./LICENSE) for details.
