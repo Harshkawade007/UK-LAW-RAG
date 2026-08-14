@@ -136,7 +136,7 @@ Children are precise enough to match but not safe to read alone: `tenancy-deposi
 
 ## The 6 pipelines
 
-Each one is the previous one plus a stage. Here's what each stage actually does.
+Each one is the previous one plus a stage. Here's what each stage actually does — if you're new to RAG, the short version is that an LLM is only ever as good as the paragraphs it's handed, so *finding the right paragraphs* is most of the actual problem. These six pipelines are six different techniques for that, each layered on top of the one before it.
 
 | Pipeline | What it adds over the previous stage | MRR@5 |
 |---|---|---|
@@ -155,11 +155,15 @@ An **oracle ceiling** — the theoretical maximum MRR if a perfect per-query rou
 
 Turns the question into a list of numbers and finds the chunks whose numbers point in a similar direction. No LLM calls, and fast — but it can blur together things that read alike and mean different things, like a Student visa and a Child Student visa.
 
+This is called an *embedding*: a model reads a piece of text and outputs a fixed list of 384 numbers representing its meaning as a point in space. The same model embeds every chunk in the corpus ahead of time, so at search time nothing needs to be read — the search just finds whichever pre-computed points sit closest to the question's point. That's what makes it fast and free of LLM calls, and also what makes it good at synonyms: "working part-time while studying" lands close to "permitted hours during term-time" even though the two share no words. Its blind spot is the flip side of the same trick — two things described in almost identical language end up as nearby points too, whether or not they're actually the same thing.
+
 ![dense pipeline: the question is embedded, searched against Qdrant, and the nearest child chunks expand to their parent sections.](assets/diagrams/pipeline-dense.svg)
 
 ### `hybrid`
 
 Runs `dense` and a keyword search (BM25) side by side, then merges the two ranked lists. Catches exact terms and numbers that dense search smooths over — but keyword search can be confidently wrong, which is why this alone sometimes scores *worse* than dense on its own.
+
+BM25 is the classic keyword algorithm behind most search engines before embeddings existed — no meaning, no learning, just how often the question's exact words appear in a chunk, weighted by how rare those words are across the whole corpus. It catches exactly what dense search structurally can't: an exact figure ("5.6 weeks"), an acronym (BRP, NI), a page title verbatim. The two ranked lists are combined with **Reciprocal Rank Fusion (RRF)**: a chunk's merged score depends only on *where it placed* in each list — 1st, 2nd, 3rd — never on the raw similarity numbers, so a 0–1 dense score and BM25's unbounded score can be combined without rescaling either one. A chunk both searches agree on beats a chunk only one of them loved. The failure mode is the mirror image: if BM25 is confidently wrong about a section, RRF lets that wrong-but-confident rank outvote a correct dense one — which is exactly what drags this pipeline's score below dense's on its own.
 
 ![hybrid pipeline: dense search and BM25 keyword search run side by side, then merge by rank before expanding to sections.](assets/diagrams/pipeline-hybrid.svg)
 
@@ -167,11 +171,15 @@ Runs `dense` and a keyword search (BM25) side by side, then merges the two ranke
 
 Takes `hybrid`'s shortlist and re-reads every candidate against the question with a cross-encoder — a model that looks at the question and the chunk *together*, instead of comparing them from a distance. Slower, but this is what actually tells two similarly-worded options apart.
 
+Dense search and BM25 both score the question and a chunk *separately* and only compare the results afterwards — neither ever actually reads them side by side. A cross-encoder does exactly that: it takes `(question, chunk)` as one joined piece of text and outputs a single relevance score, so it can notice that a chunk about the *Child* Student visa doesn't answer a question about the ordinary Student visa, even though the wording is nearly identical. That accuracy costs a full pass through the model per pair, which is far too slow to run against all ~4,700 chunks in the corpus — so it only re-scores hybrid's already-narrowed pool of ~25 candidates. Cheap, broad search first; expensive, precise judgment last.
+
 ![rerank pipeline: hybrid's pool of candidates is re-scored by a cross-encoder that reads the question and each chunk together, then the best-scoring ones expand to sections.](assets/diagrams/pipeline-rerank.svg)
 
 ### `route`
 
 One cheap LLM call rewrites the question into the wording gov.uk actually uses, and splits it into separate questions if it's genuinely asking about two things. Each rewritten question is searched and reranked on its own, then the results are merged. Powerful in theory — measured, it's the weakest pipeline, since rewrites don't always help casual phrasing. See [Inside `route`](#inside-route) below for exactly why.
+
+Every pipeline above this one only ever sees the exact words the user typed. If the right section uses genuinely different vocabulary, no amount of clever scoring downstream can find a chunk that was never retrieved in the first place — the fix has to happen *before* the search runs, not after. `route` is the only stage that does that, by asking an LLM to translate casual phrasing into the government's own terms first. The tradeoff is real: an LLM call adds a few seconds of latency, and unlike every other pipeline here, its output isn't fully repeatable — the same question can occasionally get rewritten differently between one run and the next.
 
 ![route pipeline: an LLM rewrites the question into one or more branches, each is searched and reranked independently, then the branches merge before expanding to sections.](assets/diagrams/pipeline-route.svg)
 
@@ -219,11 +227,15 @@ Three invariants — break any of them and it silently degrades:
 
 Runs `rerank`, then has an LLM check whether the result actually *answers* the question rather than just resembling it. If the check comes back weak, it retries once with `route`. This is the only pipeline that can honestly say "I don't know" instead of guessing — and it's the default everywhere a person reads the output. See [Why CRAG wins](#why-crag-wins) below for the full mechanics.
 
+The problem it solves: every score used so far — dense similarity, BM25, even the cross-encoder — measures how *closely* a chunk's wording matches the question, not whether the chunk is *correct*. A section on holding deposits reads almost identically to a question about tenancy deposits while stating the opposite rule, and it scores near the top of the entire test set doing it. No numeric cutoff can separate that from a genuine hit, because the wording really is that close — only a model that actually reads the passage and reasons about what it says can catch the difference, which is why this stage spends an LLM call instead of comparing floats.
+
 ![crag pipeline: rerank's result is graded by an LLM; a good grade answers immediately, a poor grade escalates once to route and re-grades before answering or declining.](assets/diagrams/pipeline-crag.svg)
 
 ### `agentic`
 
 One LLM call reads the question and picks which of the other five pipelines to run. The idea was to get the best of all five automatically — measured, it actually scored *worse* than simply always using `crag`, and is kept as a documented example of an idea that didn't pan out. See [Why the agentic router underperformed](#why-the-agentic-router-underperformed) below for the full story.
+
+The appeal is obvious on paper: `dense` is cheapest and sometimes wins outright, `route` is weakest on average but occasionally the only pipeline that finds an answer at all, so a smart-enough chooser should be able to get the best of every pipeline for free, question by question. What actually happened is the more useful lesson: picking the right retrieval strategy needs information the question's *wording* doesn't carry — two questions that look equally simple can have very different retrieval difficulty — so the picker ends up guessing, and guessing wrong often enough to lose to just always running `crag`.
 
 ![agentic pipeline: an LLM reads the question and picks one of the other five pipelines to run.](assets/diagrams/pipeline-agentic.svg)
 
