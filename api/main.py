@@ -28,9 +28,12 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from api.schemas import (
     ChatRequest, ChatResponse, CompareRequest, CompareResponse,
@@ -39,6 +42,11 @@ from api.schemas import (
 from retrieval.search import retrieve, retrieve_traced, close, MODES
 
 STATIC_DIR = Path(__file__).parent / "static"
+
+# Caps how many LLM-calling requests one visitor can fire per minute, keyed by
+# their IP address. Without this, /chat and /compare will run as many DeepInfra
+# calls as anyone throws at them - fine on a laptop, expensive on a public URL.
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -56,9 +64,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="UK Student Legal Assistant", lifespan=lifespan)
 
+# Hand the limiter to the app, and tell FastAPI what to do when someone goes
+# over their limit: slowapi's default handler turns it into a 429 response
+# instead of letting the request through.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
+@limiter.limit("10/minute")
+def chat(request: Request, req: ChatRequest) -> ChatResponse:
     """Answer one question, and return every section the search found.
 
     The sections come back with their scores whether or not an answer was
@@ -113,7 +128,8 @@ def chat(req: ChatRequest) -> ChatResponse:
 
 
 @app.post("/compare", response_model=CompareResponse)
-def compare(req: CompareRequest) -> CompareResponse:
+@limiter.limit("3/minute;10/day")
+def compare(request: Request, req: CompareRequest) -> CompareResponse:
     """Run the question through all five pipelines and rate what each one found.
 
     This is an explanation feature, not part of normal searching. It shows the
