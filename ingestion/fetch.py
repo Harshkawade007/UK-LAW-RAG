@@ -8,9 +8,18 @@ HTML: https://www.gov.uk/api/content/<path>
     python fetch.py --discover          also follow links to find more pages
     python fetch.py --category visa     one category only
     python fetch.py --force             re-download pages already saved
+    python fetch.py --recreate          wipe laws/<category> first, then fetch fresh
 
-Run it from inside the ingestion/ folder. Re-running is safe: pages already on
-disk are skipped unless --force is passed.
+Run it from inside the ingestion/ folder. Re-running is safe by default: pages
+already on disk are skipped unless --force is passed.
+
+--recreate is the exception: it deletes the affected category folder(s)
+entirely before fetching, so the result is exactly what gov.uk has right now -
+nothing stale left over from a page that moved or was taken down, because
+nothing from before survives to linger. It implies --discover regardless of
+whether that flag was also passed, since fetching into an empty folder without
+it would only bring back the seed pages and silently lose everything a past
+--discover crawl had found.
 
 Every saved file has the same shape - title, description, body, source_url,
 last_updated, schema_name, category - so that cleaning and chunking can treat
@@ -18,6 +27,7 @@ gov.uk and NHS pages identically. Keep that shape in any new fetcher.
 """
 
 import json
+import shutil
 import time
 import argparse
 from collections import deque
@@ -218,7 +228,7 @@ def crawl_category(
 
 
 def run(category: str | None = None, force: bool = False, discover: bool = False,
-        max_depth: int = 2, max_pages: int = 150) -> int:
+        max_depth: int = 2, max_pages: int = 150, recreate: bool = False) -> int:
     """Download gov.uk pages into laws/. Returns the total number of pages.
 
     This is the function other code calls - ingestion/build.py uses it
@@ -226,8 +236,25 @@ def run(category: str | None = None, force: bool = False, discover: bool = False
 
     Safe to re-run: pages already on disk are skipped unless `force` is set,
     though their links are still followed when discovering.
+
+    `recreate` deletes the affected category folder(s) before fetching, so
+    whatever comes back is the whole current corpus, not last time's corpus
+    plus updates. It also forces `discover` on, since re-fetching only the
+    seed pages into an empty folder would otherwise shrink the corpus back
+    down to just the seeds.
     """
     categories = {category: SOURCES[category]} if category else SOURCES
+
+    if recreate:
+        if not discover:
+            print("--recreate implies --discover, so nothing already-found gets lost")
+            discover = True
+        for cat in categories:
+            cat_dir = LAWS_DIR / cat
+            if cat_dir.exists():
+                shutil.rmtree(cat_dir)
+                print(f"[{cat}] deleted - fetching fresh")
+
     visited_global: set[str] = set()
 
     for cat, paths in categories.items():
@@ -258,9 +285,13 @@ def main():
                         help="how many link-hops deep to crawl (with --discover)")
     parser.add_argument("--max-pages", type=int, default=150,
                         help="cap on saved pages per category (with --discover)")
+    parser.add_argument("--recreate", action="store_true",
+                        help="delete laws/<category> first, then fetch fresh - "
+                             "removed/moved pages don't linger. Implies --discover.")
     args = parser.parse_args()
 
-    run(args.category, args.force, args.discover, args.max_depth, args.max_pages)
+    run(args.category, args.force, args.discover, args.max_depth, args.max_pages,
+        args.recreate)
 
 
 if __name__ == "__main__":

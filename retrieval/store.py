@@ -19,18 +19,33 @@ Note: MODEL_NAME, COLLECTION and QUERY_PREFIX below must stay identical to the
 ones in ingestion/index.py. The index was built with those settings, so a
 search using different ones would be comparing numbers that mean different
 things. Change one file and you must change the other, then rebuild the index.
+
+Qdrant runs locally (a qdrant_data/ folder, no server) unless QDRANT_URL is set
+in .env, in which case it connects to that server instead - a managed Qdrant
+Cloud cluster, in practice. Same client, same collection, same code either
+way; only where the numbers live changes. ingestion/index.py must point at the
+same place, or a search would be querying an index nothing ever wrote to.
 """
 
 import json
+import os
 from pathlib import Path
 from functools import lru_cache
 
+from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
+
+load_dotenv()
 
 ROOT = Path(__file__).parent.parent
 QDRANT_PATH = ROOT / "qdrant_data"
 PARENTS_PATH = ROOT / "chunks" / "parents.jsonl"
+
+# Set to use a remote Qdrant instead of the local qdrant_data/ folder. Both are
+# read from .env, alongside the other tokens this project uses.
+QDRANT_URL = os.environ.get("QDRANT_URL")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")
 
 MODEL_NAME = "BAAI/bge-small-en-v1.5"      # produces 384 numbers per text
 COLLECTION = "law_children"
@@ -53,12 +68,17 @@ def model() -> SentenceTransformer:
 
 @lru_cache(maxsize=1)
 def client() -> QdrantClient:
-    """The vector database, running as a local folder rather than a server.
+    """The vector database - a remote Qdrant Cloud cluster if QDRANT_URL is
+    set, otherwise the local qdrant_data/ folder.
 
-    Only one process can open qdrant_data/ at a time. That is why the API must
-    not be started with --reload or --workers > 1: the second process would
-    fail to open the folder.
+    The local-folder mode is why the API must not be started with --reload or
+    --workers > 1: only one process can open that folder at a time, and a
+    second process would fail to start. Pointing at a real server removes that
+    limit entirely, since a server can answer more than one connection at once
+    - one more reason to move to QDRANT_URL for anything beyond local testing.
     """
+    if QDRANT_URL:
+        return QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
     if not QDRANT_PATH.exists():
         raise SystemExit(f"No index at {QDRANT_PATH} - run ingestion/index.py first.")
     return QdrantClient(path=str(QDRANT_PATH))
@@ -110,7 +130,8 @@ def expand_to_parents(child_hits: list[dict], top_k: int = 5) -> list[dict]:
 
 
 def close() -> None:
-    """Let go of the qdrant_data/ folder. Call this before the program exits."""
+    """Release the Qdrant connection - the local folder lock, or the cloud
+    connection pool. Call this before the program exits."""
     if client.cache_info().currsize:
         client().close()
         client.cache_clear()

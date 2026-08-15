@@ -11,13 +11,21 @@ chunking can treat both sites identically.
     python fetch_nhs.py                 just the seed URLs in sources.py
     python fetch_nhs.py --discover      also follow links to find more pages
     python fetch_nhs.py --force         re-download pages already saved
+    python fetch_nhs.py --recreate      wipe laws/nhs/ first, then fetch fresh
 
-Run it from inside the ingestion/ folder. Re-running is safe: pages already on
-disk are skipped unless --force is passed.
+Run it from inside the ingestion/ folder. Re-running is safe by default: pages
+already on disk are skipped unless --force is passed.
+
+--recreate deletes laws/nhs/ entirely before fetching, so the result matches
+what nhs.uk has right now - nothing stale left over from a page that moved or
+was taken down. It implies --discover regardless of whether that flag was also
+passed, since fetching into an empty folder without it would only bring back
+the seed pages and silently lose everything a past --discover crawl had found.
 """
 
 import re
 import json
+import shutil
 import time
 import argparse
 from collections import deque
@@ -200,12 +208,25 @@ def crawl(discover: bool, max_depth: int, max_pages: int, force: bool):
 
 
 def run(force: bool = False, discover: bool = False,
-        max_depth: int = 2, max_pages: int = 120) -> int:
+        max_depth: int = 2, max_pages: int = 120, recreate: bool = False) -> int:
     """Download NHS pages into laws/nhs/. Returns how many pages are there now.
 
     This is the function other code calls - ingestion/build.py uses it
     directly, and main() below is just the command-line wrapper around it.
+
+    `recreate` deletes laws/nhs/ before fetching, so the result is the whole
+    current corpus rather than last time's corpus plus updates. It also forces
+    `discover` on, since re-fetching only the seed pages into an empty folder
+    would otherwise shrink the corpus back down to just the seeds.
     """
+    if recreate:
+        if not discover:
+            print("[nhs] --recreate implies --discover, so nothing already-found gets lost")
+            discover = True
+        if NHS_DIR.exists():
+            shutil.rmtree(NHS_DIR)
+            print("[nhs] deleted - fetching fresh")
+
     crawl(discover, max_depth, max_pages, force)
 
     total = sum(1 for _ in NHS_DIR.glob("*.json"))
@@ -219,9 +240,12 @@ def main():
     parser.add_argument("--discover", action="store_true", help="follow in-page links (allowlisted)")
     parser.add_argument("--max-depth", type=int, default=2)
     parser.add_argument("--max-pages", type=int, default=120)
+    parser.add_argument("--recreate", action="store_true",
+                        help="delete laws/nhs/ first, then fetch fresh - "
+                             "removed/moved pages don't linger. Implies --discover.")
     args = parser.parse_args()
 
-    run(args.force, args.discover, args.max_depth, args.max_pages)
+    run(args.force, args.discover, args.max_depth, args.max_pages, args.recreate)
 
 
 if __name__ == "__main__":

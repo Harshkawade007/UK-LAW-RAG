@@ -51,6 +51,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from eval.testset import TESTSET
+from eval.resolve import resolve_sections
 from retrieval.search import retrieve_traced, close, MODES
 
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -75,8 +76,18 @@ def check_retrieval(question: dict, top_k: int, mode: str = DEFAULT_MODE) ->dict
     A question with no expected sections is an out-of-corpus question: the
     corpus genuinely does not cover it, and the right behaviour is to decline.
     Those are excluded from the scores rather than counted as failures.
+
+    expected_sections identifies answers by (url, heading) rather than a
+    fixed parent_id, so resolve_sections() looks up today's actual id against
+    the live corpus every run - see eval/resolve.py for why. An entry that
+    fails to resolve prints a loud warning rather than silently scoring as
+    unfindable, since that usually means the source page or section is
+    genuinely gone and the testset entry needs a human to look at it.
     """
-    expected = set(question["expected_parent_ids"] or [])
+    expected, unresolved = resolve_sections(question["expected_sections"])
+    for s in unresolved:
+        print(f"  ⚠ testset entry does not resolve: {s['url']} / {s['heading']!r} "
+              f"(question: {question['question'][:60]!r})")
 
     t0 = time.perf_counter()
     parents, trace = retrieve_traced(question["question"], top_k=top_k, mode=mode)

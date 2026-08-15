@@ -4,11 +4,11 @@ One command that turns the downloaded pages into a searchable index.
     python ingestion/build.py                 clean -> chunk -> index (~3 min)
     python ingestion/build.py --force         redo the cleaning from scratch
     python ingestion/build.py --from chunk    start part-way through
-    python ingestion/build.py --fetch         download the pages first
+    python ingestion/build.py --fetch         delete laws/ and rebuild it fresh first
 
 The steps must run in this order:
 
-    fetch    download pages from gov.uk and nhs.uk    -> laws/
+    fetch    delete laws/, then download it fresh      -> laws/
     dedupe   delete pages saved twice                 -> laws/
     clean    strip the HTML down to plain text        -> cleaned/
     chunk    split each page into sections and chunks -> chunks/
@@ -43,15 +43,17 @@ STEPS = ("clean", "chunk", "index")
 
 FETCH_WARNING = """\
 ==============================================================================
-  WARNING - re-fetching will invalidate the evaluation testset.
+  WARNING - this DELETES laws/ and rebuilds it from scratch.
 ==============================================================================
-  laws/ is committed to the repository on purpose. It is the fixed set of
-  pages that every recorded score was measured against.
+  laws/<category> and laws/nhs/ are wiped first, then fetched fresh. This is
+  deliberate: it is the only way to make sure a page that gov.uk or nhs.uk has
+  since removed or moved does not just sit there stale forever - a page that
+  is not re-fetched because it is not there to re-fetch.
 
-  eval/testset.py points at sections by POSITION within a page. Fetching adds
-  and updates pages, which shifts those positions - so the test questions
-  quietly start pointing at DIFFERENT sections. Nothing errors. The scores
-  simply stop meaning anything.
+  eval/testset.py points at sections by POSITION within a page. Recreating the
+  corpus changes those positions - so the test questions quietly start
+  pointing at DIFFERENT sections. Nothing errors. The scores simply stop
+  meaning anything until the testset is re-checked against the new pages.
 
   Only do this if you intend to re-check the testset afterwards.
 =============================================================================="""
@@ -124,13 +126,13 @@ def main() -> None:
             "  python ingestion/build.py                 clean -> chunk -> index\n"
             "  python ingestion/build.py --force         re-clean from scratch\n"
             "  python ingestion/build.py --from chunk    resume, skipping clean\n"
-            "  python ingestion/build.py --fetch         refresh the corpus first\n"
+            "  python ingestion/build.py --fetch         delete laws/, rebuild it fresh, then build\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--fetch", action="store_true",
-                        help="re-fetch laws/ before building. WARNING: invalidates "
-                             "eval/testset.py - see the notice it prints.")
+                        help="delete laws/ and rebuild it from scratch before building. "
+                             "WARNING: invalidates eval/testset.py - see the notice it prints.")
     parser.add_argument("--force", action="store_true",
                         help="re-clean every page even if its output already exists")
     parser.add_argument("--from", dest="start", choices=STEPS, default="clean",
@@ -157,8 +159,8 @@ def main() -> None:
             if answer != "yes":
                 raise SystemExit("Aborted - nothing was changed.")
 
-        step("fetch: gov.uk", lambda: fetch.run(discover=True))
-        step("fetch: nhs.uk", lambda: fetch_nhs.run(discover=True))
+        step("fetch: gov.uk", lambda: fetch.run(discover=True, recreate=True))
+        step("fetch: nhs.uk", lambda: fetch_nhs.run(discover=True, recreate=True))
         step("dedupe (laws/)", lambda: dedupe.dedupe(LAWS_DIR, apply=True))
         # Fetching can remove pages (through dedupe) and change others, so the
         # only safe follow-up is to delete the leftovers and re-clean the lot.

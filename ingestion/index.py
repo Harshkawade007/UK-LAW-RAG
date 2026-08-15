@@ -23,9 +23,13 @@ costs nothing, so there is no reason to save the numbers in between. If a paid
 embedding API were used instead, it would be worth splitting them apart to
 avoid paying twice.
 
-Qdrant runs in local mode here: it writes to the qdrant_data/ folder directly,
-with no Docker and no server to start. Pointing at a real Qdrant server later
-means changing QdrantClient(path=...) to QdrantClient(url=...) and nothing else.
+Always writes to the local qdrant_data/ folder - no Docker, no server, no
+account needed, and every pipeline already knows how to fall back to it. If
+QDRANT_URL is also set in .env (a managed Qdrant Cloud cluster, in practice),
+the same points are written there too, as a second copy, not a replacement.
+retrieval/store.py picks cloud over local whenever QDRANT_URL is set, so if
+that variable is only set for one of the two scripts, search ends up querying
+an index this script never actually wrote to - keep them in sync.
 
 Usage (run from inside the ingestion/ folder):
 
@@ -35,18 +39,28 @@ Usage (run from inside the ingestion/ folder):
 """
 
 import json
+import os
 import uuid
 import argparse
 from pathlib import Path
 
+from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance, VectorParams, PointStruct, PayloadSchemaType,
 )
 
+load_dotenv()
+
 CHUNKS_DIR = Path(__file__).parent.parent / "chunks"
 QDRANT_PATH = Path(__file__).parent.parent / "qdrant_data"
+
+# Same two variables as retrieval/store.py, read the same way. Set in .env,
+# not this script's own arguments - so index.py and the search side can never
+# accidentally point at different Qdrant instances from a mistyped flag.
+QDRANT_URL = os.environ.get("QDRANT_URL")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")
 
 # ⚠️ These three must stay identical to the ones in retrieval/store.py. The
 # search side has its own copy because ingestion/ runs as standalone scripts.
@@ -80,23 +94,13 @@ def point_id(child_id: str) -> str:
     return str(uuid.uuid5(_NS, child_id))
 
 
-def build(children: list[dict], batch_size: int) -> QdrantClient:
-    """Embed every chunk and write them into a fresh collection."""
-    print(f"Loading model {MODEL_NAME} (first run downloads ~130 MB)...")
-    model = SentenceTransformer(MODEL_NAME)
+def _write_collection(client: QdrantClient, points: list[PointStruct], label: str) -> None:
+    """Write every point into a fresh collection on the given client.
 
-    texts = [c["text"] for c in children]
-    print(f"Embedding {len(texts)} children...")
-    vectors = model.encode(
-        texts,
-        batch_size=batch_size,
-        normalize_embeddings=True,   # makes the similarity comparison behave
-        show_progress_bar=True,
-    )
-
-    print(f"Opening Qdrant (local) at {QDRANT_PATH}")
-    client = QdrantClient(path=str(QDRANT_PATH))
-
+    Shared by both destinations below so local and cloud can never end up with
+    different collection settings (vector size, distance metric, the category
+    index) just because one code path got edited and the other did not.
+    """
     # Start from an empty collection every time. It is quick, and it guarantees
     # the database matches the chunks rather than holding leftovers from before.
     if client.collection_exists(COLLECTION):
@@ -108,15 +112,51 @@ def build(children: list[dict], batch_size: int) -> QdrantClient:
     # Makes filtering by category fast later on.
     client.create_payload_index(COLLECTION, "category", PayloadSchemaType.KEYWORD)
 
+    for i in range(0, len(points), 256):
+        client.upsert(COLLECTION, points=points[i:i + 256])
+
+    print(f"Indexed {len(points)} points into '{COLLECTION}' ({label}).")
+
+
+def build(children: list[dict], batch_size: int) -> QdrantClient:
+    """Embed every chunk once, then write it into local Qdrant, and into cloud
+    Qdrant too if QDRANT_URL is configured.
+
+    Local always gets written - it is the free, no-account fallback every
+    pipeline already knows how to use, and it costs nothing to keep it current
+    even once cloud is also in the picture. Cloud is additional, not a
+    replacement, exactly when QDRANT_URL is set.
+    """
+    print(f"Loading model {MODEL_NAME} (first run downloads ~130 MB)...")
+    model = SentenceTransformer(MODEL_NAME)
+
+    texts = [c["text"] for c in children]
+    print(f"Embedding {len(texts)} children...")
+    vectors = model.encode(
+        texts,
+        batch_size=batch_size,
+        normalize_embeddings=True,   # makes the similarity comparison behave
+        show_progress_bar=True,
+    )
     points = [
         PointStruct(id=point_id(c["child_id"]), vector=vec.tolist(), payload=c)
         for c, vec in zip(children, vectors)
     ]
-    for i in range(0, len(points), 256):
-        client.upsert(COLLECTION, points=points[i:i + 256])
 
-    print(f"Indexed {len(points)} points into '{COLLECTION}'.")
-    return client
+    print(f"Opening Qdrant (local) at {QDRANT_PATH}")
+    local_client = QdrantClient(path=str(QDRANT_PATH))
+    _write_collection(local_client, points, "local")
+
+    if QDRANT_URL:
+        print(f"Opening Qdrant Cloud at {QDRANT_URL}")
+        cloud_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        _write_collection(cloud_client, points, "cloud")
+        cloud_client.close()
+
+    # The sanity check always runs against local: it is free, it needs no
+    # network call, and local is guaranteed to exist no matter what QDRANT_URL
+    # is set to.
+    return local_client
 
 
 def sanity_check(client: QdrantClient) -> None:
@@ -145,7 +185,7 @@ def main():
         if not args.no_test:
             sanity_check(client)
     finally:
-        client.close()  # always let go of the folder, even if the search failed
+        client.close()  # release the connection (or the local folder lock), even if the search failed
 
 
 if __name__ == "__main__":

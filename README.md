@@ -6,10 +6,13 @@ Six retrieval strategies are implemented and empirically benchmarked against a 3
 
 > Built after relocating to the UK and repeatedly hitting the same wall: official guidance exists, but finding the *right* page for a specific situation is hard. This project is a portfolio piece exploring what it actually takes to make retrieval reliable enough to trust, not just plausible enough to demo.
 
+📋 **[Engineering log](ENGINEERING_LOG.md)** — the real problems this project ran into (an eval set that silently broke itself, a fetcher that couldn't tell "removed" from "not looked at yet," a retrieval signal that made results worse) and the reasoning behind how each was actually solved, not just the finished code.
+
 ---
 
 ## Table of contents
 
+- [Engineering log](ENGINEERING_LOG.md) — problems hit, and how they got solved
 - [Setup](#setup)
 - [Architecture](#architecture)
   - [Small-to-big retrieval, in detail](#small-to-big-retrieval-in-detail)
@@ -81,10 +84,12 @@ Useful flags:
 ```bash
 python ingestion/build.py --force         # rebuild ignoring existing outputs
 python ingestion/build.py --from chunk    # resume partway (skip clean)
-python ingestion/build.py --fetch         # re-fetch + dedupe first, then clean → chunk → index
+python ingestion/build.py --fetch         # delete laws/, rebuild it fresh, dedupe, then clean → chunk → index
 ```
 
-> ⚠️ **`--fetch` changes the corpus.** All benchmark numbers in this README, and the test set's expected answers, are measured against the pinned `laws/` snapshot. Re-fetching can add, remove, or shift content, which silently invalidates them. `--fetch` prints a warning and asks for confirmation before running — that's intentional, not a bug.
+> ⚠️ **`--fetch` deletes `laws/` and rebuilds it from scratch** — not an incremental add. That's deliberate: gov.uk/nhs.uk pages get removed or moved over time, and a purely additive fetch would leave stale content sitting there undetected forever, since there'd be nothing to notice a page is gone. Wiping first guarantees the result matches the live site exactly. All benchmark numbers in this README, and the test set's expected answers, are measured against the pinned `laws/` snapshot — recreating it shifts section positions, which silently invalidates them. `--fetch` prints a warning and asks for confirmation before running — that's intentional, not a bug.
+
+> **Optional — point the index at Qdrant Cloud instead of the local `qdrant_data/` folder.** Set `QDRANT_URL` and `QDRANT_API_KEY` in `.env` (see [`.env.example`](./.env.example)), then re-run `python ingestion/index.py`. Everything else — `retrieval/store.py`, every pipeline, the API — reads the same two variables and follows automatically; nothing else changes. Leave both unset and the local folder is used exactly as before, no account needed. Re-running the index is a manual step by design — the corpus is only rebuilt every few months, and a CI/CD schedule would risk silently invalidating the pinned benchmark numbers above, so a deliberate, reviewed command beats an automated one here.
 
 ### 4. Run it
 
