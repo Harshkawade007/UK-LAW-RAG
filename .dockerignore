@@ -1,0 +1,21 @@
+# Built locally / gitignored - the Dockerfile regenerates cleaned/ and
+# chunks/ itself; qdrant_data/ is never used in production (QDRANT_URL points
+# at Qdrant Cloud instead).
+cleaned/
+chunks/
+qdrant_data/
+
+# Secrets - never bake these into the image. Set them as env vars on the host.
+.env
+
+# Local dev cruft
+.venv/
+__pycache__/
+*.py[cod]
+.git/
+.claude/
+eval/results/
+
+# Not needed at runtime
+diagrams/
+assets/

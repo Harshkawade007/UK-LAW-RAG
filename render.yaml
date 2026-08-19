@@ -1,0 +1,21 @@
+# Render "Blueprint" - lets Render create and configure the service from this
+# file instead of clicking through the dashboard. Connect the repo at
+# https://dashboard.render.com/blueprints and Render reads this automatically.
+#
+# DEEPINFRA_TOKEN, QDRANT_URL and QDRANT_API_KEY are deliberately left as
+# `sync: false` - Render will prompt for them once in the dashboard instead of
+# storing secrets in this committed file.
+services:
+  - type: web
+    name: uk-law-rag
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DEEPINFRA_TOKEN
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false

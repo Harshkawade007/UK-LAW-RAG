@@ -2,7 +2,7 @@
 <!--
   The whole web interface: one file, no build step, no frameworks.
 
-  It talks to two endpoints in api/main.py:
+  Talks to two endpoints in api/main.py:
     POST /chat     ask one question with one pipeline
     POST /compare  run all five pipelines and rate what each one found
 
@@ -12,257 +12,516 @@
 -->
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UK Student Legal Assistant</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UK Law RAG</title>
 <style>
   :root {
-    --bg:#f5f7f8; --surface:#fff; --surface-2:#eef1f3; --border:#dbe1e4;
-    --ink:#16232a; --ink-soft:#485b64; --ink-faint:#74868f;
-    --accent:#0e7c86; --accent-wash:#dcefF1;
-    --warn:#a8631a; --warn-wash:#fbf0df;
-    --mono:ui-monospace,"Cascadia Code",Consolas,monospace;
-    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --paper: #f5f0e7;
+    --surface: #fffaf2;
+    --surface-soft: #fbf8f2;
+    --ink: #1d2926;
+    --muted: #70695e;
+    --line: #d8d0c3;
+    --green: #173f3a;
+    --green-hover: #24534d;
+    --green-soft: #e7f0eb;
+    --green-ink: #255247;
+    --rust: #8c5c43;
+    --rust-soft: #f3e6dc;
+    --rust-ink: #6f4a2f;
+    --danger: #a8402c;
+    --danger-soft: #f7e5e0;
+    --on-accent: #fdfbf6;
+    --on-accent-muted: #d7e3de;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
   }
-  @media (prefers-color-scheme:dark){
-    :root{
-      --bg:#0f1619; --surface:#161f24; --surface-2:#1d282e; --border:#2b3a41;
-      --ink:#e8eef0; --ink-soft:#aebdc4; --ink-faint:#7d9099;
-      --accent:#43bcc7; --accent-wash:#10323a;
-      --warn:#e0a35c; --warn-wash:#3a2a15;
-    }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.55;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6}
-  .wrap{max-width:860px;margin:0 auto;padding:2rem 1.25rem 4rem}
-  h1{font-size:1.5rem;margin:0 0 .25rem}
-  .sub{color:var(--ink-faint);font-size:.9rem;margin:0 0 1.5rem}
+  button { font: inherit; cursor: pointer; }
+  a { color: var(--green-ink); }
 
-  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;margin-bottom:1rem}
-  textarea{width:100%;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);
-           color:var(--ink);font-family:inherit;font-size:1rem;padding:.7rem;resize:vertical;min-height:70px}
-  textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+  /* ---------- top bar ---------- */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--line);
+    animation: fadeDown 600ms ease both;
+  }
+  .brand { color: var(--ink); font-size: 15px; font-weight: 750; }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .status.ready .dot { background: #4f9c7f; }
+  .status.ready { color: var(--green-ink); }
+  .status.down .dot { background: var(--danger); }
+  .status.down { color: var(--danger); }
 
-  .controls{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-top:.75rem}
-  .modes{display:flex;gap:.3rem;background:var(--surface-2);padding:.25rem;border-radius:8px}
-  .modes label{font-size:.85rem;padding:.3rem .7rem;border-radius:6px;cursor:pointer;color:var(--ink-soft)}
-  .modes input{position:absolute;opacity:0;pointer-events:none}
-  .modes input:checked + span{background:var(--accent);color:#fff;border-radius:6px;padding:.3rem .7rem;display:inline-block;margin:-.3rem -.7rem}
-  .modes input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
-  .chk{font-size:.85rem;color:var(--ink-soft);display:flex;align-items:center;gap:.4rem;cursor:pointer}
-  button{margin-left:auto;background:var(--accent);color:#fff;border:0;border-radius:8px;
-         padding:.55rem 1.3rem;font-size:.95rem;font-weight:600;cursor:pointer}
-  button:disabled{opacity:.55;cursor:default}
+  main { width: min(980px, 100%); margin: 0 auto; padding: 96px 32px 72px; }
 
-  .meta{font-family:var(--mono);font-size:.75rem;color:var(--ink-faint);margin-bottom:.6rem}
-  .answer{white-space:pre-wrap}
-  .answer cite{background:var(--accent-wash);color:var(--accent);font-style:normal;font-weight:600;
-               border-radius:4px;padding:0 .28em;font-family:var(--mono);font-size:.85em}
-  .disclaimer{margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border);
-              color:var(--ink-faint);font-size:.8rem}
+  /* ---------- intro ---------- */
+  .intro { margin-bottom: 28px; text-align: center; animation: riseIn 700ms 100ms ease both; }
+  .eyebrow, .modes-label {
+    color: var(--rust); font-size: 11px; font-weight: 700; letter-spacing: 1.3px;
+  }
+  h1 {
+    margin: 14px 0; font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(38px, 6vw, 52px); font-weight: 600; line-height: 1.02;
+  }
+  .intro p { margin: 0 auto; max-width: 46ch; color: var(--muted); font-size: 16px; }
 
-  h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-faint);margin:0 0 .6rem}
-  details{border:1px solid var(--border);border-radius:8px;margin-bottom:.45rem;background:var(--surface-2)}
-  summary{cursor:pointer;padding:.55rem .7rem;font-size:.9rem;display:flex;gap:.6rem;align-items:baseline}
-  summary::-webkit-details-marker{display:none}
-  summary::before{content:"▸";color:var(--ink-faint);font-size:.8rem}
-  details[open] summary::before{content:"▾"}
-  .num{font-family:var(--mono);color:var(--accent);font-weight:600;font-size:.85rem}
-  .crumb{flex:1;min-width:0}
-  .score{font-family:var(--mono);font-size:.75rem;color:var(--ink-faint)}
-  .body{padding:.2rem .8rem .8rem 1.9rem;font-size:.88rem;color:var(--ink-soft);white-space:pre-wrap;
-        max-height:300px;overflow:auto}
-  .body a{color:var(--accent)}
-  .err{background:var(--warn-wash);border-color:var(--warn);color:var(--warn)}
-  .hint{color:var(--ink-faint);font-size:.82rem}
+  /* ---------- composer ---------- */
+  .composer {
+    padding: 18px; border: 1px solid var(--line); border-radius: 18px;
+    background: var(--surface); box-shadow: 0 16px 35px rgba(68, 57, 42, 0.08);
+    animation: riseIn 700ms 180ms ease both;
+  }
+  textarea.prompt {
+    display: block; width: 100%; min-height: 24px; max-height: 220px;
+    border: 0; background: transparent; resize: none; overflow-y: auto;
+    color: var(--ink); font: inherit; font-size: 16px; padding: 0;
+  }
+  textarea.prompt::placeholder { color: #8a8378; }
+  textarea.prompt:focus { outline: none; }
+  .composer-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; margin-top: 16px;
+  }
+  .settings { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .toggle {
+    padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--surface-soft); color: #564f45; font-size: 12px; font-weight: 600;
+    transition: background 200ms ease, color 200ms ease, border-color 200ms ease, transform 200ms ease;
+  }
+  .toggle:hover { transform: translateY(-1px); }
+  .toggle.active { border-color: #b7c9bf; background: var(--green-soft); color: var(--green-ink); }
+  .send {
+    padding: 10px 20px; border: 1px solid var(--green); border-radius: 999px;
+    background: var(--green); color: var(--on-accent); font-size: 13px; font-weight: 650;
+    transition: background 200ms ease, transform 200ms ease, box-shadow 200ms ease, opacity 200ms ease;
+  }
+  .send:hover:not(:disabled) { background: var(--green-hover); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(23, 63, 58, 0.2); }
+  .send:disabled { opacity: 0.6; cursor: default; }
+  .send:active, .mode:active, .agentic:active, .compare:active, .toggle:active { transform: scale(0.98); }
 
-  .trace{margin:0 0 .8rem;padding:.55rem .7rem;background:var(--surface-2);
-         border-radius:8px;font-size:.82rem;color:var(--ink-soft)}
-  .trace b{color:var(--ink-faint);font-weight:600;text-transform:uppercase;
-           letter-spacing:.08em;font-size:.7rem}
-  .trace li{margin:.3rem 0;list-style:none}
-  .trace ul{margin:.35rem 0 0;padding:0}
-  .trace .orig{color:var(--ink-faint)}
-  .tag{font-family:var(--mono);font-size:.72em;background:var(--accent-wash);
-       color:var(--accent);border-radius:4px;padding:0 .35em;margin-left:.3em}
-  .grade{font-family:var(--mono);font-size:.74em;border-radius:4px;
-         padding:.05em .4em;margin-left:.35em;font-weight:600}
-  .grade.good{background:var(--accent-wash);color:var(--accent)}
-  .grade.bad{background:var(--warn-wash);color:var(--warn)}
-  /* A refusal has to look different from an answer, or it reads as one. */
-  .declined{background:var(--warn-wash);color:var(--warn);font-weight:600;
-            border-radius:6px;padding:.5rem .7rem;margin-bottom:.8rem;font-size:.9em}
-  .trace .reason{margin-top:.3rem;color:var(--ink-faint);font-size:.95em}
+  /* ---------- retrieval mode picker ---------- */
+  .modes { margin-top: 28px; animation: riseIn 700ms 260ms ease both; }
+  .modes-label { margin-bottom: 12px; }
+  .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .mode {
+    min-height: 68px; padding: 13px 14px; border: 1px solid var(--line); border-radius: 14px;
+    background: var(--surface-soft); color: #3b3a35; text-align: left;
+    transition: background 220ms ease, color 220ms ease, border-color 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+  }
+  .mode:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(68, 57, 42, 0.08); }
+  .mode strong { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font-size: 13px; font-weight: 700; }
+  .mode span { display: block; color: var(--muted); font-size: 11px; line-height: 1.3; transition: color 220ms ease; }
+  .mode .default-tag {
+    font-size: 9px; font-weight: 800; letter-spacing: 0.5px; color: var(--rust);
+    background: var(--rust-soft); border-radius: 999px; padding: 1px 6px; transition: color 220ms ease, background 220ms ease;
+  }
+  .mode.active { border-color: var(--green); background: var(--green); color: var(--on-accent); box-shadow: 0 8px 20px rgba(23, 63, 58, 0.18); }
+  .mode.active span { color: var(--on-accent-muted); }
+  .mode.active .default-tag { background: rgba(253, 251, 246, 0.18); color: var(--on-accent); }
 
-  .cmp-panel{margin-top:2rem}
-  .cmp-block{border:1px solid var(--border);border-radius:8px;margin-top:.7rem;
-             background:var(--surface-2);overflow:hidden}
-  .cmp-head{display:flex;align-items:baseline;gap:.6rem;padding:.6rem .75rem;
-            border-bottom:1px solid var(--border);flex-wrap:wrap}
-  .cmp-mode{font-family:var(--mono);font-weight:700;letter-spacing:.04em;text-transform:uppercase;
-            font-size:.82rem;color:var(--accent)}
-  .cmp-score{font-family:var(--mono);font-size:.78rem;color:var(--ink)}
-  .cmp-lat{font-family:var(--mono);font-size:.72rem;color:var(--ink-faint);margin-left:auto}
-  .cmp-sum{flex-basis:100%;font-size:.85rem;color:var(--ink-soft)}
-  .cmp-sec{display:grid;grid-template-columns:auto 1fr;gap:.5rem .6rem;
-           padding:.5rem .75rem;border-top:1px solid var(--border);font-size:.85rem}
-  .cmp-sec:first-of-type{border-top:0}
-  .r{font-family:var(--mono);font-size:.7rem;font-weight:700;border-radius:4px;
-     padding:.08em .4em;height:fit-content;white-space:nowrap}
-  .r3{background:var(--accent-wash);color:var(--accent)}
-  .r2{background:var(--accent-wash);color:var(--accent);opacity:.72}
-  .r1{background:var(--surface);color:var(--ink-faint);border:1px solid var(--border)}
-  .r0{background:var(--warn-wash);color:var(--warn)}
-  .cmp-sec .cmt{color:var(--ink-faint);font-size:.95em;display:block;margin-top:.15rem}
-  .winner{border-color:var(--accent)}
+  .agentic, .compare {
+    width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 18px;
+    margin-top: 16px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px;
+    background: var(--surface-soft); color: #3b3a35; text-align: left;
+    transition: background 220ms ease, color 220ms ease, border-color 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+  }
+  .agentic:hover, .compare:hover { transform: translateY(-2px); }
+  .agentic strong, .compare strong { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 750; }
+  .agentic span, .compare span { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; transition: color 220ms ease; }
+  .auto, .compare-label {
+    color: var(--rust); font-size: 10px; font-weight: 800; letter-spacing: 1px; white-space: nowrap; transition: color 220ms ease;
+  }
+  .agentic.active, .compare.active { border-color: var(--green); background: var(--green); color: var(--on-accent); box-shadow: 0 8px 22px rgba(23, 63, 58, 0.3); }
+  .agentic.active span, .compare.active span { color: var(--on-accent-muted); }
+  .agentic.active .auto, .compare.active .compare-label { color: #f5d9c8; }
+  .compare {
+    border-color: #8cb1a5; background: linear-gradient(135deg, var(--green-soft) 0%, var(--surface-soft) 100%);
+    box-shadow: 0 0 0 3px rgba(140, 177, 165, 0.16), 0 12px 28px rgba(23, 63, 58, 0.14);
+  }
+  .compare:hover { box-shadow: 0 0 0 4px rgba(140, 177, 165, 0.24), 0 14px 30px rgba(23, 63, 58, 0.16); }
+  .compare:disabled { opacity: 0.65; cursor: default; transform: none; }
+
+  /* ---------- results ---------- */
+  .results, .compare-results { margin-top: 32px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 20px; margin-bottom: 14px;
+    animation: riseIn 460ms ease both;
+  }
+  .meta-line {
+    font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 10px;
+  }
+  .loading {
+    display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px;
+  }
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--green);
+    animation: pulse 1100ms ease-in-out infinite;
+  }
+  .declined {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--rust-soft); color: var(--rust-ink); font-weight: 600; font-size: 13.5px;
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
+  }
+  .answer { white-space: pre-wrap; font-size: 15px; }
+  .answer cite {
+    background: var(--green-soft); color: var(--green-ink); font-style: normal; font-weight: 700;
+    border-radius: 5px; padding: 0 0.32em; font-family: var(--mono); font-size: 0.82em;
+  }
+  .disclaimer { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+
+  .section-heading {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted);
+    margin: 0 0 10px; font-weight: 700;
+  }
+
+  /* trace */
+  .trace { font-size: 13px; color: var(--ink); }
+  .trace + .trace { margin-top: 10px; }
+  .trace-row { margin-bottom: 10px; }
+  .trace-row:last-child { margin-bottom: 0; }
+  .trace-label { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 6px; }
+  .badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; border-radius: 999px;
+    padding: 2px 9px; display: inline-block;
+  }
+  .badge.good { background: var(--green-soft); color: var(--green-ink); }
+  .badge.bad { background: var(--rust-soft); color: var(--rust-ink); }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; background: var(--green-soft); color: var(--green-ink);
+    border-radius: 999px; padding: 1px 8px; margin-left: 6px;
+  }
+  .reason { margin-top: 4px; color: var(--muted); font-size: 13px; }
+  .branch-list { margin: 8px 0 0; padding: 0; list-style: none; }
+  .branch-list li { margin: 6px 0; font-size: 13px; }
+  .branch-list .orig { color: var(--muted); font-size: 12px; }
+
+  /* retrieved sections */
+  details.source {
+    border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; background: var(--surface-soft);
+    overflow: hidden;
+  }
+  details.source summary {
+    cursor: pointer; padding: 11px 14px; font-size: 13.5px; display: flex; gap: 10px; align-items: baseline;
+    list-style: none;
+  }
+  details.source summary::-webkit-details-marker { display: none; }
+  details.source summary::before { content: "▸"; color: var(--muted); font-size: 11px; }
+  details.source[open] summary::before { content: "▾"; }
+  .src-num { font-family: var(--mono); color: var(--green-ink); font-weight: 700; font-size: 12.5px; }
+  .src-crumb { flex: 1; min-width: 0; }
+  .src-score { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .src-body {
+    padding: 2px 16px 14px 30px; font-size: 13px; color: var(--muted); white-space: pre-wrap;
+    max-height: 300px; overflow: auto; animation: fadeIn 220ms ease both;
+  }
+  .src-body a { color: var(--green-ink); font-size: 12px; }
+
+  /* compare */
+  .cmp-block {
+    border: 1px solid var(--line); border-radius: 14px; margin-bottom: 12px; background: var(--surface);
+    overflow: hidden; animation: riseIn 460ms ease both;
+  }
+  .cmp-block.winner { border-color: var(--green); box-shadow: 0 8px 22px rgba(23, 63, 58, 0.1); }
+  .cmp-head {
+    display: flex; align-items: baseline; gap: 10px; padding: 14px 16px;
+    border-bottom: 1px solid var(--line); flex-wrap: wrap;
+  }
+  .cmp-mode {
+    font-family: var(--mono); font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+    font-size: 12.5px; color: var(--green-ink);
+  }
+  .cmp-score { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+  .cmp-lat { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; }
+  .cmp-sum { flex-basis: 100%; font-size: 13px; color: var(--muted); }
+  .cmp-sec { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 13px; }
+  .cmp-sec:first-of-type { border-top: 0; }
+  .rating { font-family: var(--mono); font-size: 10.5px; font-weight: 800; border-radius: 6px; padding: 2px 6px; height: fit-content; white-space: nowrap; }
+  .rating.r3 { background: var(--green-soft); color: var(--green-ink); }
+  .rating.r2 { background: var(--green-soft); color: var(--green-ink); opacity: 0.72; }
+  .rating.r1 { background: var(--surface-soft); color: var(--muted); border: 1px solid var(--line); }
+  .rating.r0 { background: var(--rust-soft); color: var(--rust-ink); }
+  .cmp-comment { color: var(--muted); font-size: 12.5px; display: block; margin-top: 3px; }
+
+  .err-card { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+  .err-card strong { display: block; margin-bottom: 4px; }
+
+  .evidence { margin: 28px 0 0; color: #837b6d; font-size: 13px; text-align: center; animation: riseIn 700ms 360ms ease both; }
+
+  /* ---------- animations ---------- */
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes riseIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes pulse { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+
+  @media (max-width: 640px) {
+    .topbar, main { padding-left: 18px; padding-right: 18px; }
+    main { padding-top: 64px; }
+    .mode-grid { grid-template-columns: 1fr; }
+    .composer-footer { align-items: flex-end; }
+    .agentic, .compare { align-items: flex-start; }
+    .cmp-sec { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>UK Student Legal Assistant</h1>
-  <p class="sub">Ask a question, switch retrieval modes, and inspect exactly which sections were retrieved.</p>
+  <header class="topbar">
+    <div class="brand">▰ UK Law RAG</div>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">connecting…</span></div>
+  </header>
+  <main>
+    <section class="intro">
+      <div class="eyebrow">GROUNDED IN GOV.UK &amp; NHS.UK</div>
+      <h1>Ask the archive.</h1>
+      <p>UK visa, tax, housing, banking, employment and NHS guidance — answered with citations, or a clear "I don't know" when the corpus doesn't cover it.</p>
+    </section>
 
-  <div class="panel">
-    <textarea id="q" placeholder="e.g. Do full-time students have to pay Council Tax?"></textarea>
-    <div class="controls">
-      <div class="modes" role="radiogroup" aria-label="Retrieval mode">
-        <label><input type="radio" name="mode" value="dense"><span>dense</span></label>
-        <label><input type="radio" name="mode" value="hybrid"><span>hybrid</span></label>
-        <label><input type="radio" name="mode" value="rerank"><span>rerank</span></label>
-        <label><input type="radio" name="mode" value="route"><span>route</span></label>
-        <label><input type="radio" name="mode" value="crag" checked><span>crag</span></label>
-        <label><input type="radio" name="mode" value="agentic"><span>agentic</span></label>
+    <section class="composer">
+      <textarea id="q" class="prompt" rows="1"
+        placeholder="e.g. Do full-time students have to pay Council Tax?"></textarea>
+      <div class="composer-footer">
+        <div class="settings">
+          <button class="toggle active" id="genToggle" type="button" aria-pressed="true">Generation on</button>
+        </div>
+        <button class="send" id="askBtn" type="button">Ask</button>
       </div>
-      <label class="chk"><input type="checkbox" id="gen" checked> generate answer</label>
-      <button id="go">Ask</button>
-    </div>
-    <p class="hint" style="margin:.6rem 0 0">Uncheck “generate answer” to inspect retrieval only — no API credits used.</p>
-  </div>
+    </section>
 
-  <div id="out"></div>
+    <section class="modes">
+      <div class="modes-label">RETRIEVAL MODE</div>
+      <div class="mode-grid" id="modeGrid">
+        <button class="mode" data-mode="dense" type="button" aria-pressed="false">
+          <strong>Dense</strong>
+          <span>Semantic vector search. Fast, no LLM calls.</span>
+        </button>
+        <button class="mode" data-mode="hybrid" type="button" aria-pressed="false">
+          <strong>Hybrid</strong>
+          <span>Adds keyword matching (BM25) alongside it.</span>
+        </button>
+        <button class="mode" data-mode="rerank" type="button" aria-pressed="false">
+          <strong>Rerank</strong>
+          <span>A cross-encoder re-scores the shortlist.</span>
+        </button>
+        <button class="mode" data-mode="route" type="button" aria-pressed="false">
+          <strong>Route</strong>
+          <span>An LLM rewrites the query before searching.</span>
+        </button>
+        <button class="mode active" data-mode="crag" type="button" aria-pressed="true">
+          <strong>CRAG <span class="default-tag">DEFAULT</span></strong>
+          <span>Grades its own results, retries once, can decline.</span>
+        </button>
+      </div>
+      <button class="agentic" data-mode="agentic" type="button" aria-pressed="false">
+        <div>
+          <strong>Run Agentic Pipeline</strong>
+          <span>One LLM call reads the question and picks which of the other five pipelines to run.</span>
+        </div>
+        <div class="auto">AUTO</div>
+      </button>
+      <button class="compare" id="compareBtn" type="button">
+        <div>
+          <strong>Compare all pipelines</strong>
+          <span>Runs the question through five pipelines and has an LLM rate every section each one found. Takes ~40s and uses API credits.</span>
+        </div>
+        <div class="compare-label">5× VIEW</div>
+      </button>
+    </section>
 
-  <!-- Comparison panel. Kept separate from the normal search on purpose: it
-       runs every pipeline on the same question and has an LLM rate what each
-       one found, which is slow and costs credits, so it only runs on request. -->
-  <div class="panel cmp-panel">
-    <h2 style="margin-bottom:.4rem">Compare all pipelines</h2>
-    <p class="hint" style="margin:0 0 .75rem">
-      Runs the question above through all five pipelines and has an LLM rate every
-      section each one retrieved. No single pipeline wins every query — this shows why.
-      Takes ~40s and uses API credits.
-    </p>
-    <button id="cmpGo" style="margin:0">Compare pipelines</button>
-    <div id="cmpOut"></div>
-  </div>
-</div>
+    <section class="results" id="results" aria-live="polite"></section>
+    <section class="compare-results" id="compareResults" aria-live="polite"></section>
+
+    <p class="evidence">Every response is traceable back to the source page. Not legal advice.</p>
+  </main>
 
 <script>
 const $ = (s) => document.querySelector(s);
-const out = $("#out"), btn = $("#go"), qEl = $("#q");
-
 const esc = (s) => (s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 // Turn [1] / [2][3] citation markers into highlighted chips.
 const cites = (s) => esc(s).replace(/\[(\d+)\]/g, '<cite>[$1]</cite>');
 
-function render(d) {
+const qEl = $("#q"), askBtn = $("#askBtn"), genToggle = $("#genToggle");
+const results = $("#results"), compareResults = $("#compareResults");
+const modeGrid = $("#modeGrid"), agenticBtn = document.querySelector('.agentic[data-mode="agentic"]');
+const compareBtn = $("#compareBtn");
+const statusEl = $("#status"), statusText = $("#statusText");
+
+let currentMode = "crag";
+let generate = true;
+
+// ---------- textarea auto-grow ----------
+function autoGrow() {
+  qEl.style.height = "auto";
+  qEl.style.height = Math.min(qEl.scrollHeight, 220) + "px";
+}
+qEl.addEventListener("input", autoGrow);
+
+// ---------- mode selection (dense/hybrid/rerank/route/crag/agentic - mutually exclusive) ----------
+const modeButtons = [...modeGrid.querySelectorAll(".mode"), agenticBtn];
+function selectMode(mode) {
+  currentMode = mode;
+  modeButtons.forEach((b) => {
+    const active = b.dataset.mode === mode;
+    b.classList.toggle("active", active);
+    b.setAttribute("aria-pressed", String(active));
+  });
+}
+modeButtons.forEach((b) => b.addEventListener("click", () => selectMode(b.dataset.mode)));
+
+// ---------- generation toggle ----------
+genToggle.addEventListener("click", () => {
+  generate = !generate;
+  genToggle.classList.toggle("active", generate);
+  genToggle.setAttribute("aria-pressed", String(generate));
+  genToggle.textContent = generate ? "Generation on" : "Generation off";
+});
+
+// ---------- live backend status ----------
+(async function checkHealth() {
+  try {
+    const res = await fetch("/health");
+    if (!res.ok) throw new Error();
+    const d = await res.json();
+    statusEl.classList.add("ready");
+    statusText.textContent = `${d.modes.length} pipelines ready`;
+  } catch {
+    statusEl.classList.add("down");
+    statusText.textContent = "backend unreachable";
+  }
+})();
+
+// ---------- chat ----------
+function renderChat(d) {
   const t = d.timings;
-  const timing = `mode=${d.mode} · retrieval ${t.retrieval_ms}ms`
+  const timing = `mode=${esc(d.mode)} · retrieval ${t.retrieval_ms}ms`
     + (t.generation_ms != null ? ` · generation ${t.generation_ms}ms` : " · retrieval only");
 
-  let html = "";
+  let html = `<div class="card"><div class="meta-line">${timing}</div>`;
   if (d.answer) {
     const declined = d.refused
-      ? `<div class="declined">Declined to answer — the grader judged the retrieved
-         sections irrelevant, so no answer was generated.</div>`
+      ? `<div class="declined">⚠ Declined to answer — the grader judged the retrieved sections irrelevant, so no answer was generated.</div>`
       : "";
-    html += `<div class="panel"><div class="meta">${esc(timing)}</div>
-      ${declined}<div class="answer">${cites(d.answer)}</div></div>`;
+    html += `${declined}<div class="answer">${cites(d.answer)}</div>`;
   } else {
-    html += `<div class="panel"><div class="meta">${esc(timing)}</div>
-      <p class="hint" style="margin:0">Retrieval only — tick “generate answer” for a written response.</p></div>`;
+    html += `<p style="margin:0;color:var(--muted);font-size:14px">Retrieval only — turn on "Generation" for a written response.</p>`;
   }
+  html += `</div>`;
 
-  html += `<div class="panel">`;
   const tr = d.trace;
-  if (tr) {
-    html += `<div class="trace">`;
-    // What the pipeline decided. Without this, crag would look exactly like
-    // rerank from the outside - same answer, no sign of the check behind it.
+  if (tr && (tr.selected || tr.grade || (tr.branches && tr.branches.length))) {
+    html += `<div class="card trace">`;
     if (tr.selected) {
-      html += `<b>Agent chose</b> <span class="grade good">${esc(tr.selected)}</span>
-        <div class="reason">${esc(tr.select_reason || "")}</div>`;
+      html += `<div class="trace-row"><span class="trace-label">Agent chose</span>
+        <span class="badge good">${esc(tr.selected)}</span>
+        <div class="reason">${esc(tr.select_reason || "")}</div></div>`;
     }
     if (tr.grade) {
       const ok = tr.grade === "relevant";
-      html += `<b>Retrieval graded</b>
-        <span class="grade ${ok ? "good" : "bad"}">${esc(tr.grade)}</span>
+      html += `<div class="trace-row"><span class="trace-label">Retrieval graded</span>
+        <span class="badge ${ok ? "good" : "bad"}">${esc(tr.grade)}</span>
         ${tr.escalated ? `<span class="tag">re-searched</span>` : ""}
-        <div class="reason">${esc(tr.grade_reason || "")}</div>`;
-      // The retry changed the sections, so they were graded again. It is this
-      // second grade that decides whether an answer gets written at all.
+        <div class="reason">${esc(tr.grade_reason || "")}</div></div>`;
       if (tr.escalated && tr.final_grade) {
         const ok2 = tr.final_grade === "relevant";
-        html += `<b>Re-graded after re-search</b>
-          <span class="grade ${ok2 ? "good" : "bad"}">${esc(tr.final_grade)}</span>
-          <div class="reason">${esc(tr.final_grade_reason || "")}</div>`;
+        html += `<div class="trace-row"><span class="trace-label">Re-graded after re-search</span>
+          <span class="badge ${ok2 ? "good" : "bad"}">${esc(tr.final_grade)}</span>
+          <div class="reason">${esc(tr.final_grade_reason || "")}</div></div>`;
       }
     }
-    // The queries that were actually searched, when the question was rewritten.
     if (tr.branches && tr.branches.length) {
-      html += `${tr.grade ? "" : "<b>Searched " + tr.branches.length + " queries</b>"}<ul>`;
+      html += `<div class="trace-row">`;
+      if (!tr.grade) html += `<span class="trace-label">Searched ${tr.branches.length} queries</span>`;
+      html += `<ul class="branch-list">`;
       tr.branches.forEach((b, i) => {
         const tags = (b.categories || []).map(c => `<span class="tag">${esc(c)}</span>`).join("");
         const label = i === 0 ? ` <span class="orig">(original, unfiltered)</span>` : "";
         html += `<li>${esc(b.query)}${tags}${label}</li>`;
       });
-      html += `</ul>`;
+      html += `</ul></div>`;
     }
     html += `</div>`;
   }
-  html += `<h2>${d.refused ? "Closest matches" : "Retrieved sections"} (${d.sources.length})</h2>`;
-  for (const s of d.sources) {
-    const score = s.score == null ? "" : `<span class="score">${s.score.toFixed(3)}</span>`;
-    html += `<details>
-      <summary><span class="num">[${s.n}]</span>
-        <span class="crumb">${esc(s.breadcrumb || s.page_title || "")}</span>${score}</summary>
-      <div class="body">${esc(s.text || "")}
+
+  html += `<div class="card">
+    <p class="section-heading">${d.refused ? "Closest matches" : "Retrieved sections"} (${d.sources.length})</p>`;
+  d.sources.forEach((s) => {
+    const score = s.score == null ? "" : `<span class="src-score">${s.score.toFixed(3)}</span>`;
+    html += `<details class="source">
+      <summary><span class="src-num">[${s.n}]</span>
+        <span class="src-crumb">${esc(s.breadcrumb || s.page_title || "")}</span>${score}</summary>
+      <div class="src-body">${esc(s.text || "")}
         ${s.url ? `<p><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a></p>` : ""}
       </div></details>`;
-  }
+  });
   html += `<p class="disclaimer">Not legal advice. Always confirm on the linked official page.</p></div>`;
-  out.innerHTML = html;
+
+  results.innerHTML = html;
+}
+
+function renderChatError(message, isRateLimit) {
+  const note = isRateLimit
+    ? "You're sending requests a little too fast — wait a moment and try again."
+    : message;
+  results.innerHTML = `<div class="card err-card"><strong>Request failed.</strong>${esc(note)}</div>`;
 }
 
 async function ask() {
   const question = qEl.value.trim();
   if (question.length < 3) { qEl.focus(); return; }
-  btn.disabled = true; btn.textContent = "Thinking…";
-  out.innerHTML = `<div class="panel"><span class="hint">Searching the corpus…</span></div>`;
+  askBtn.disabled = true; askBtn.textContent = "Thinking…";
+  results.innerHTML = `<div class="card loading"><span class="pulse-dot"></span> Searching the corpus…</div>`;
+  compareResults.innerHTML = "";
   try {
     const res = await fetch("/chat", {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        question,
-        mode: document.querySelector('input[name=mode]:checked').value,
-        generate: $("#gen").checked,
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, mode: currentMode, generate }),
     });
+    if (res.status === 429) {
+      const body = await res.json().catch(() => ({}));
+      renderChatError(body.error || "Rate limit exceeded.", true);
+      return;
+    }
     if (!res.ok) throw new Error((await res.text()) || res.statusText);
-    render(await res.json());
+    renderChat(await res.json());
   } catch (e) {
-    out.innerHTML = `<div class="panel err"><strong>Request failed.</strong><br>${esc(e.message)}</div>`;
+    renderChatError(e.message, false);
   } finally {
-    btn.disabled = false; btn.textContent = "Ask";
+    askBtn.disabled = false; askBtn.textContent = "Ask";
   }
 }
 
-const cmpBtn = $("#cmpGo"), cmpOut = $("#cmpOut");
-
+// ---------- compare ----------
 function renderCompare(d) {
-  let html = `<p class="meta" style="margin:.9rem 0 .2rem">
-    ${d.pipelines.length} pipelines · ${(d.total_ms / 1000).toFixed(1)}s ·
-    ranked by DCG over section ratings</p>`;
+  let html = `<div class="meta-line" style="margin-bottom:14px">
+    ${d.pipelines.length} pipelines · ${(d.total_ms / 1000).toFixed(1)}s · ranked by DCG over section ratings</div>`;
   d.pipelines.forEach((p, i) => {
     html += `<div class="cmp-block${i === 0 ? " winner" : ""}">
       <div class="cmp-head">
@@ -272,45 +531,56 @@ function renderCompare(d) {
         <span class="cmp-lat">${p.latency_ms}ms</span>
         <span class="cmp-sum">${esc(p.summary)}</span>
       </div>`;
-    for (const s of p.sections) {
+    p.sections.forEach((s) => {
       const r = s.rating;
       const cls = r === null || r === undefined ? "r1" : "r" + r;
       const label = r === null || r === undefined ? "—" : r + "/3";
       html += `<div class="cmp-sec">
-        <span class="r ${cls}" title="${esc(s.rating_label || "")}">${label}</span>
+        <span class="rating ${cls}" title="${esc(s.rating_label || "")}">${label}</span>
         <span>${esc(s.breadcrumb || "")}
-          ${s.comment ? `<span class="cmt">${esc(s.comment)}</span>` : ""}</span>
+          ${s.comment ? `<span class="cmp-comment">${esc(s.comment)}</span>` : ""}</span>
       </div>`;
-    }
+    });
     html += `</div>`;
   });
-  cmpOut.innerHTML = html;
+  compareResults.innerHTML = html;
+}
+
+function renderCompareError(message, isRateLimit) {
+  const note = isRateLimit
+    ? "The comparison panel is limited to a few runs per day since it's the expensive one (multiple LLM calls per run) — try again later."
+    : message;
+  compareResults.innerHTML = `<div class="card err-card"><strong>Comparison failed.</strong>${esc(note)}</div>`;
 }
 
 async function compare() {
   const question = qEl.value.trim();
   if (question.length < 3) { qEl.focus(); return; }
-  cmpBtn.disabled = true; cmpBtn.textContent = "Running all pipelines…";
-  cmpOut.innerHTML = `<p class="hint" style="margin:.9rem 0 0">
-    Running five pipelines and reviewing every section — this takes ~40s.</p>`;
+  compareBtn.disabled = true;
+  compareResults.innerHTML = `<div class="card loading"><span class="pulse-dot"></span> Running five pipelines and reviewing every section — this takes ~40s.</div>`;
+  results.innerHTML = "";
   try {
     const res = await fetch("/compare", {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({question}),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
     });
+    if (res.status === 429) {
+      const body = await res.json().catch(() => ({}));
+      renderCompareError(body.error || "Rate limit exceeded.", true);
+      return;
+    }
     if (!res.ok) throw new Error((await res.text()) || res.statusText);
     renderCompare(await res.json());
   } catch (e) {
-    cmpOut.innerHTML = `<div class="panel err" style="margin-top:.9rem">
-      <strong>Comparison failed.</strong><br>${esc(e.message)}</div>`;
+    renderCompareError(e.message, false);
   } finally {
-    cmpBtn.disabled = false; cmpBtn.textContent = "Compare pipelines";
+    compareBtn.disabled = false;
   }
 }
 
-cmpBtn.addEventListener("click", compare);
-btn.addEventListener("click", ask);
+askBtn.addEventListener("click", ask);
+compareBtn.addEventListener("click", compare);
 qEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !e.shiftKey)) { e.preventDefault(); ask(); }
 });
