@@ -9,7 +9,14 @@ services:
   - type: web
     name: uk-law-rag
     runtime: docker
-    plan: starter
+    # Free and Starter both cap at 512MB RAM (Starter only adds more CPU) -
+    # verified locally under a 512MB cgroup limit that the app idles around
+    # 350MB and peaks under 450MB even on /compare (all 5 pipelines at once),
+    # after switching to the CPU-only torch build in the Dockerfile. Free's
+    # actual tradeoff is the 15-minute idle spin-down, not memory: the first
+    # request after a lull pays a cold start again. Bump to `standard` (2GB)
+    # if that spin-down becomes a problem.
+    plan: free
     healthCheckPath: /health
     autoDeploy: true
     envVars:

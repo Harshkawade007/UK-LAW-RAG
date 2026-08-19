@@ -12,6 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Plain `pip install torch` on Linux pulls the CUDA build by default - several
+# GB of GPU libraries (cublas, cudnn, nccl, ...) this CPU-only container never
+# uses. Installing the CPU-only wheel first satisfies sentence-transformers'
+# `torch>=2.2` requirement, so the later install doesn't replace it.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
