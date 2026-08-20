@@ -78,7 +78,10 @@ def client() -> QdrantClient:
     - one more reason to move to QDRANT_URL for anything beyond local testing.
     """
     if QDRANT_URL:
-        return QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        # port=443 (rather than the client's default 6333) is required on
+        # hosts that restrict outbound traffic to standard web ports, like
+        # Hugging Face Spaces - verified the cluster answers on both.
+        return QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, port=443)
     if not QDRANT_PATH.exists():
         raise SystemExit(f"No index at {QDRANT_PATH} - run ingestion/index.py first.")
     return QdrantClient(path=str(QDRANT_PATH))

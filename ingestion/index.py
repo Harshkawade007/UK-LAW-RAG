@@ -149,7 +149,9 @@ def build(children: list[dict], batch_size: int) -> QdrantClient:
 
     if QDRANT_URL:
         print(f"Opening Qdrant Cloud at {QDRANT_URL}")
-        cloud_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        # port=443 rather than the client's default 6333 - see the matching
+        # comment in retrieval/store.py.
+        cloud_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, port=443)
         _write_collection(cloud_client, points, "cloud")
         cloud_client.close()
 

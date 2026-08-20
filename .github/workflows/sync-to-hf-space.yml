@@ -1,0 +1,23 @@
+name: Sync to Hugging Face Space
+
+# Mirrors main to the HF Space's own git repo on every push, so the Space
+# rebuilds and redeploys automatically - GitHub stays the single source of
+# truth, and the Space repo is never edited directly.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git push --force https://Harsh-k-007:${HF_TOKEN}@huggingface.co/spaces/Harsh-k-007/uk-law-rag main:main

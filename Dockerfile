@@ -1,27 +1,43 @@
-# Always-on server image (Render web service). Not built for Vercel/serverless -
-# see the module docstrings in api/main.py and retrieval/store.py for why: the
-# embedding + cross-encoder models are loaded once at startup and kept warm in
-# memory, which only makes sense on a long-running process.
+# Always-on server image, built for Hugging Face Spaces (Docker SDK). Not
+# built for Vercel/serverless - see the module docstrings in api/main.py and
+# retrieval/store.py for why: the embedding + cross-encoder models are loaded
+# once at startup and kept warm in memory, which only makes sense on a
+# long-running process.
 
 FROM python:3.12-slim
 
-WORKDIR /app
+# HF Spaces runs Docker containers as UID 1000 regardless of what the
+# Dockerfile specifies, so create that user up front and own everything
+# under it from the first COPY - avoids permission errors reading app files
+# at runtime. See https://huggingface.co/docs/hub/spaces-sdks-docker.
+RUN useradd -m -u 1000 user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+WORKDIR $HOME/app
 
-# System deps for sentence-transformers / torch wheels.
+# System deps for sentence-transformers / torch wheels (root, before USER).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# WORKDIR above created $HOME/app while still root, so it's root-owned even
+# though `useradd -m` made $HOME itself user-owned. COPY --chown=user below
+# fixes ownership on the files it copies in, but not on this pre-existing
+# directory - without this, `clean.py` fails to mkdir cleaned/ inside it.
+RUN chown -R user:user $HOME/app
+
+USER user
 
 # Plain `pip install torch` on Linux pulls the CUDA build by default - several
 # GB of GPU libraries (cublas, cudnn, nccl, ...) this CPU-only container never
 # uses. Installing the CPU-only wheel first satisfies sentence-transformers'
 # `torch>=2.2` requirement, so the later install doesn't replace it.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir --user torch --index-url https://download.pytorch.org/whl/cpu
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --chown=user requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
 
-COPY . .
+COPY --chown=user . .
 
 # laws/ is committed; cleaned/ and chunks/ are gitignored and normally built
 # locally. Do that here at image-build time so the container has
@@ -45,10 +61,12 @@ CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 ENV HF_HUB_OFFLINE=1
 ENV TRANSFORMERS_OFFLINE=1
 
+# Must match app_port in the README.md Spaces config block at the top of the
+# repo. Spaces doesn't set a $PORT env var the way Render does, so this just
+# defaults straight to 8000.
 EXPOSE 8000
 
-# Render sets $PORT; default to 8000 for local `docker run`. Never --reload or
-# --workers > 1 here even though QDRANT_URL removes the folder-lock reason -
-# --reload would re-run the model warm-up on every file change, which makes no
-# sense in a container that never changes at runtime.
+# Never --reload or --workers > 1 here even though QDRANT_URL removes the
+# folder-lock reason - --reload would re-run the model warm-up on every file
+# change, which makes no sense in a container that never changes at runtime.
 CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
