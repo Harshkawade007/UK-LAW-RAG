@@ -1,8 +1,11 @@
 name: Sync to Hugging Face Space
 
-# Mirrors main to the HF Space's own git repo on every push, so the Space
-# rebuilds and redeploys automatically - GitHub stays the single source of
-# truth, and the Space repo is never edited directly.
+# Mirrors main to the HF Space on every push, so the Space rebuilds and
+# redeploys automatically - GitHub stays the single source of truth, and the
+# Space is never edited directly. Uses HF's own hub-sync action (uploads file
+# contents via the hf CLI) rather than a raw `git push` with a token URL,
+# which failed authentication in testing for reasons the GitHub API wouldn't
+# show without repo admin rights on the Actions logs.
 on:
   push:
     branches: [main]
@@ -13,11 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Push to Hugging Face Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          git push --force https://Harsh-k-007:${HF_TOKEN}@huggingface.co/spaces/Harsh-k-007/uk-law-rag main:main
+      - uses: huggingface/hub-sync@v0.1.0
+        with:
+          github_repo_id: ${{ github.repository }}
+          huggingface_repo_id: Harsh-k-007/uk-law-rag
+          hf_token: ${{ secrets.HF_TOKEN }}
+          space_sdk: docker
