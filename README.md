@@ -16,6 +16,8 @@ Six retrieval strategies are implemented and empirically benchmarked against a 3
 
 > Built after relocating to the UK and repeatedly hitting the same wall: official guidance exists, but finding the *right* page for a specific situation is hard. This project is a portfolio piece exploring what it actually takes to make retrieval reliable enough to trust, not just plausible enough to demo.
 
+🔗 **[Try it live](https://harsh-k-007-uk-law-rag.hf.space)** — no setup needed.
+
 📋 **[Engineering log](ENGINEERING_LOG.md)** — the real problems this project ran into (an eval set that silently broke itself, a fetcher that couldn't tell "removed" from "not looked at yet," a retrieval signal that made results worse) and the reasoning behind how each was actually solved, not just the finished code.
 
 ---
@@ -33,8 +35,6 @@ Six retrieval strategies are implemented and empirically benchmarked against a 3
 - [Why the agentic router underperformed](#why-the-agentic-router-underperformed)
 - [Evaluation methodology](#evaluation-methodology)
 - [Project structure](#project-structure)
-- [Design decisions & tradeoffs](#design-decisions--tradeoffs)
-- [Roadmap](#roadmap)
 - [License](#license)
 
 ---
@@ -365,6 +365,7 @@ UK-LAW-RAG/
 │   └── review.py                # judges all pipelines for the /compare panel
 ├── eval/
 │   ├── testset.py               # the 39 questions + expected sections
+│   ├── resolve.py               # looks expected sections up by (url, heading) against the live corpus
 │   └── run_eval.py              # the MRR harness
 ├── laws/                        # pinned raw corpus (committed)
 ├── cleaned/                     # laws/ with HTML stripped (generated)
