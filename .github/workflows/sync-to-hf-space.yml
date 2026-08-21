@@ -17,6 +17,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The Space needs its own README.md with HF's YAML frontmatter (sdk,
+      # app_port, ...) at the top - GitHub doesn't understand that syntax and
+      # renders it as ugly literal text, so the real README.md in this repo
+      # deliberately has none. Swap in the Space-only version (frontmatter +
+      # a short blurb pointing back here) just for this sync step; the actual
+      # committed README.md on GitHub is never touched.
+      - name: Use the Space-specific README for this sync only
+        run: cp .github/space-readme.md README.md
+
       - uses: huggingface/hub-sync@v0.1.0
         with:
           github_repo_id: ${{ github.repository }}

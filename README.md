@@ -1,4 +1,3 @@
-
 # UK Law RAG
 
 A retrieval-augmented question-answering system for navigating UK administrative and legal rules — visas, tax, housing, banking, employment rights, the NHS, and education — grounded entirely in [gov.uk](https://www.gov.uk) and [nhs.uk](https://www.nhs.uk) content.
